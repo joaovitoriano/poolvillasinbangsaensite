@@ -1,0 +1,123 @@
+import {
+  IconAirConditioningDisabled,
+  IconArmchair,
+  IconBeachOff,
+  IconClock,
+  IconFlameOff,
+  IconGlassOff,
+  IconGrillOff,
+  IconKey,
+  IconLock,
+  IconMoodKid,
+  IconMusicOff,
+  IconPawOff,
+  IconShirtOff,
+  IconShoeOff,
+  IconSmokingNo,
+  IconSparkles,
+  IconSwimming,
+  IconToolsKitchen2Off,
+  IconTrash,
+  IconUsersMinus,
+  IconVolumeOff,
+  IconWallOff,
+  type TablerIcon,
+} from "@tabler/icons-react";
+
+export const HOUSE_RULE_ICONS = {
+  smoking: IconSmokingNo,
+  events: IconMusicOff,
+  pets: IconPawOff,
+  guests: IconUsersMinus,
+  quiet: IconVolumeOff,
+  shoes: IconShoeOff,
+  cooking: IconToolsKitchen2Off,
+  flames: IconFlameOff,
+  furniture: IconArmchair,
+  walls: IconWallOff,
+  pool: IconSwimming,
+  glass: IconGlassOff,
+  children: IconMoodKid,
+  security: IconLock,
+  airConditioning: IconAirConditioningDisabled,
+  waste: IconTrash,
+  grill: IconGrillOff,
+  beach: IconBeachOff,
+  key: IconKey,
+  time: IconClock,
+  linens: IconShirtOff,
+  other: IconSparkles,
+} satisfies Record<string, TablerIcon>;
+
+export type HouseRuleIconName = keyof typeof HOUSE_RULE_ICONS;
+
+export const HOUSE_RULE_ICON_OPTIONS: ReadonlyArray<{
+  value: HouseRuleIconName;
+  labelEn: string;
+  labelTh: string;
+}> = [
+  { value: "smoking", labelEn: "Smoking", labelTh: "การสูบบุหรี่" },
+  { value: "events", labelEn: "Parties and music", labelTh: "ปาร์ตี้และดนตรี" },
+  { value: "pets", labelEn: "Pets", labelTh: "สัตว์เลี้ยง" },
+  { value: "guests", labelEn: "Guests", labelTh: "ผู้เข้าพัก" },
+  { value: "quiet", labelEn: "Noise and quiet hours", labelTh: "เสียงและเวลาเงียบ" },
+  { value: "shoes", labelEn: "Shoes", labelTh: "รองเท้า" },
+  { value: "cooking", labelEn: "Cooking", labelTh: "การทำอาหาร" },
+  { value: "flames", labelEn: "Flames and fireworks", labelTh: "เปลวไฟและพลุ" },
+  { value: "furniture", labelEn: "Furniture", labelTh: "เฟอร์นิเจอร์" },
+  { value: "walls", labelEn: "Walls", labelTh: "ผนัง" },
+  { value: "pool", labelEn: "Pool", labelTh: "สระว่ายน้ำ" },
+  { value: "glass", labelEn: "Glass", labelTh: "แก้ว" },
+  { value: "children", labelEn: "Children", labelTh: "เด็ก" },
+  { value: "security", labelEn: "Security", labelTh: "ความปลอดภัย" },
+  { value: "airConditioning", labelEn: "Air conditioning", labelTh: "เครื่องปรับอากาศ" },
+  { value: "waste", labelEn: "Waste", labelTh: "ขยะ" },
+  { value: "grill", labelEn: "BBQ and grill", labelTh: "บาร์บีคิวและเตาย่าง" },
+  { value: "beach", labelEn: "Beach items", labelTh: "ของใช้ชายหาด" },
+  { value: "key", labelEn: "Keys", labelTh: "กุญแจ" },
+  { value: "time", labelEn: "Check-in and checkout", labelTh: "เช็กอินและเช็กเอาต์" },
+  { value: "linens", labelEn: "Linens and cleaning", labelTh: "ผ้าและการทำความสะอาด" },
+  { value: "other", labelEn: "Other", labelTh: "อื่น ๆ" },
+];
+
+export const HOUSE_RULE_PRESETS = [
+  { textEn: "No smoking indoors", textTh: "ห้ามสูบบุหรี่ภายในบ้าน", icon: "smoking" },
+  { textEn: "No smoking on premises", textTh: "ห้ามสูบบุหรี่ในบริเวณบ้าน", icon: "smoking" },
+  { textEn: "No parties or events", textTh: "ห้ามจัดปาร์ตี้หรืองานเลี้ยง", icon: "events" },
+  { textEn: "No pets allowed", textTh: "ห้ามนำสัตว์เลี้ยงเข้า", icon: "pets" },
+  { textEn: "No unregistered guests", textTh: "ห้ามนำผู้เข้าพักที่ไม่ได้ลงทะเบียน", icon: "guests" },
+  { textEn: "No loud music after 10 PM", textTh: "ห้ามเปิดเพลงดังหลัง 4 ทุ่ม", icon: "quiet" },
+  { textEn: "No loud music after midnight", textTh: "ห้ามเปิดเพลงดังหลังเที่ยงคืน", icon: "quiet" },
+  { textEn: "Quiet hours (after 10 PM)", textTh: "เวลาเงียบ (หลัง 4 ทุ่ม)", icon: "quiet" },
+  { textEn: "No shoes inside", textTh: "ห้ามใส่รองเท้าในบ้าน", icon: "shoes" },
+  { textEn: "No cooking strong-smelling food", textTh: "ห้ามทำอาหารที่มีกลิ่นแรง", icon: "cooking" },
+  { textEn: "No candles or open flames", textTh: "ห้ามจุดเทียนหรือใช้ไฟเปิด", icon: "flames" },
+  { textEn: "No moving furniture", textTh: "ห้ามเคลื่อนย้ายเฟอร์นิเจอร์", icon: "furniture" },
+  { textEn: "No hanging items on walls", textTh: "ห้ามแขวนสิ่งของบนผนัง", icon: "walls" },
+  { textEn: "No washing clothes in pool", textTh: "ห้ามซักผ้าในสระว่ายน้ำ", icon: "pool" },
+  { textEn: "No food in the swimming pool", textTh: "ห้ามนำอาหารลงสระว่ายน้ำ", icon: "pool" },
+  { textEn: "No color-bleeding clothing in pool", textTh: "ห้ามใส่เสื้อผ้าที่อาจตกสีลงสระ", icon: "pool" },
+  { textEn: "No glass near pool", textTh: "ห้ามนำแก้วเข้าใกล้สระ", icon: "glass" },
+  { textEn: "No diving in pool", textTh: "ห้ามกระโดดน้ำในสระ", icon: "pool" },
+  { textEn: "No children unsupervised at pool", textTh: "ห้ามปล่อยเด็กอยู่ที่สระโดยไม่มีผู้ดูแล", icon: "children" },
+  { textEn: "Gate must be locked at night", textTh: "ต้องล็อคประตูรั้วตอนกลางคืน", icon: "security" },
+  { textEn: "AC must be turned off when leaving", textTh: "ต้องปิดแอร์เมื่อออกจากห้อง", icon: "airConditioning" },
+  { textEn: "Close windows when AC is on", textTh: "ปิดหน้าต่างเมื่อเปิดแอร์", icon: "airConditioning" },
+  { textEn: "Garbage must be sorted", textTh: "ต้องแยกขยะ", icon: "waste" },
+  { textEn: "No illegal substances", textTh: "ห้ามใช้สารเสพติดผิดกฎหมาย", icon: "other" },
+  { textEn: "No fighting or disorderly conduct", textTh: "ห้ามทะเลาะวิวาทหรือประพฤติตัวไม่เหมาะสม", icon: "other" },
+  { textEn: "No fireworks", textTh: "ห้ามจุดพลุ", icon: "flames" },
+  { textEn: "No BBQ on balcony", textTh: "ห้ามทำบาร์บีคิวบนระเบียง", icon: "grill" },
+  { textEn: "Do not take towels to the beach", textTh: "ห้ามนำผ้าเช็ดตัวไปชายหาด", icon: "beach" },
+  { textEn: "Lost key replacement fee", textTh: "ค่าทำกุญแจใหม่กรณีหาย", icon: "key" },
+  { textEn: "Late checkout fee", textTh: "ค่าธรรมเนียมเช็คเอาต์ล่าช้า", icon: "time" },
+  { textEn: "Early check-in fee", textTh: "ค่าธรรมเนียมเช็คอินก่อนเวลา", icon: "time" },
+  { textEn: "Extra cleaning fee", textTh: "ค่าทำความสะอาดเพิ่มเติม", icon: "linens" },
+  { textEn: "Damage to linens fee", textTh: "ค่าเสียหายผ้าปูที่นอน/ผ้าเช็ดตัว", icon: "linens" },
+] as const satisfies ReadonlyArray<{ textEn: string; textTh: string; icon: HouseRuleIconName }>;
+
+export function HouseRuleIcon({ icon, size = 20, className }: { icon: string; size?: number; className?: string }) {
+  const name = icon in HOUSE_RULE_ICONS ? icon as HouseRuleIconName : "other";
+  const Icon = HOUSE_RULE_ICONS[name];
+  return <Icon size={size} stroke={1.7} className={className} aria-hidden="true" />;
+}

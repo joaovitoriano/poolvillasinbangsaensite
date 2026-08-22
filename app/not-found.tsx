@@ -1,0 +1,3 @@
+import Link from "next/link";
+
+export default function NotFound(){return <main className="grid min-h-screen place-items-center bg-[var(--paper)] p-6 text-center"><div><p className="font-mono text-xs uppercase tracking-[.2em] text-[var(--terracotta)]">404 · Page not found / ไม่พบหน้า</p><h1 className="mt-4 font-serif text-5xl font-semibold text-[var(--navy)]">This page has moved or does not exist. / หน้านี้ถูกย้ายหรือไม่มีอยู่</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-[var(--soft)]">Return to the villa collection to continue your search. / กลับไปยังรายการวิลล่าเพื่อค้นหาต่อ</p><Link href="/th" className="mt-7 inline-flex min-h-12 items-center bg-[var(--navy)] px-5 text-sm font-bold text-white">Browse villas / ดูวิลล่า</Link></div></main>}
