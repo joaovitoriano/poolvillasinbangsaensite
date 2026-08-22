@@ -8,7 +8,12 @@ export type GoogleCalendarEvent = {
   eventLabelId?: string;
 };
 
-export type ImportedCalendarEvent = { externalEventId:string; startDate:string; endDate:string; name:string; description?:string; kind:"booking"|"closed"|"reminder"; labelName?:string };
+export type GoogleCalendarLabel = { backgroundColor?: string };
+
+export type ImportedCalendarEvent = { externalEventId:string; startDate:string; endDate:string; name:string; description?:string; kind:"booking"|"closed"|"ignored" };
+
+const MANGO_BACKGROUND_COLOR = "#f09300";
+const TOMATO_BACKGROUND_COLOR = "#d50000";
 
 function nextDate(date:string){
   const value=new Date(`${date}T00:00:00.000Z`);
@@ -22,17 +27,22 @@ function bangkokDate(dateTime:string){
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-export function normalizeGoogleEvents(events:GoogleCalendarEvent[], labelNames:Map<string,string>):ImportedCalendarEvent[]{
+function labelKind(label:GoogleCalendarLabel|undefined):ImportedCalendarEvent["kind"] {
+  const backgroundColor=label?.backgroundColor?.trim().toLocaleLowerCase();
+  if(backgroundColor===MANGO_BACKGROUND_COLOR)return "ignored";
+  if(backgroundColor===TOMATO_BACKGROUND_COLOR)return "closed";
+  return "booking";
+}
+
+export function normalizeGoogleEvents(events:GoogleCalendarEvent[], labels:Map<string,GoogleCalendarLabel>):ImportedCalendarEvent[]{
   const result:ImportedCalendarEvent[]=[];
   for(const event of events){
     if(!event.id||event.status==="cancelled")continue;
     const startDate=event.start?.date??(event.start?.dateTime?bangkokDate(event.start.dateTime):undefined);
     const inclusiveEndDate=event.end?.date??(event.end?.dateTime?bangkokDate(event.end.dateTime):startDate);
     if(!startDate||!inclusiveEndDate||inclusiveEndDate<startDate)continue;
-    const labelName=event.eventLabelId?labelNames.get(event.eventLabelId)?.trim():undefined;
-    const normalizedLabel=labelName?.toLocaleLowerCase();
-    const kind=normalizedLabel==="mango"?"reminder":normalizedLabel==="tomato"?"closed":"booking";
-    result.push({externalEventId:event.id,startDate,endDate:nextDate(inclusiveEndDate),name:(event.summary||"Google Calendar event").slice(0,160),description:event.description?.slice(0,2000),kind,labelName});
+    const kind=labelKind(event.eventLabelId?labels.get(event.eventLabelId):undefined);
+    result.push({externalEventId:event.id,startDate,endDate:nextDate(inclusiveEndDate),name:(event.summary||"Google Calendar event").slice(0,160),description:event.description?.slice(0,2000),kind});
   }
   return result;
 }

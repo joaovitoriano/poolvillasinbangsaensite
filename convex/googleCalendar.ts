@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, env, internalAction, type ActionCtx } from "./_generated/server";
-import { normalizeGoogleEvents, type GoogleCalendarEvent } from "./lib/googleCalendar";
+import { normalizeGoogleEvents, type GoogleCalendarEvent, type GoogleCalendarLabel } from "./lib/googleCalendar";
 
 type CalendarSyncResult = { skipped: boolean; calendarsProcessed?: number; importedEvents?: number };
 const calendarSyncResultValidator = v.object({ skipped: v.boolean(), calendarsProcessed: v.optional(v.number()), importedEvents: v.optional(v.number()) });
@@ -11,7 +11,7 @@ const RENEW_BEFORE_MS = 24 * 60 * 60_000;
 
 class SyncTokenExpiredError extends Error {}
 
-type CalendarLabelsResponse = { labelProperties?: { eventLabels?: Array<{ id?: string; name?: string }> } };
+type CalendarLabelsResponse = { labelProperties?: { eventLabels?: Array<{ id?: string; backgroundColor?: string }> } };
 
 async function accessToken() {
   const clientId = env.GOOGLE_CLIENT_ID?.trim();
@@ -59,16 +59,16 @@ async function listEventsPage(token: string, calendarId: string, syncToken?: str
   return await response.json() as { items?: GoogleCalendarEvent[]; nextPageToken?: string; nextSyncToken?: string };
 }
 
-async function calendarLabelNames(token: string, calendarId: string) {
-  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`, { headers: { Authorization: `Bearer ${token}` } });
+async function calendarLabels(token: string, calendarId: string) {
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}?eventLabelVersion=1`, { headers: { Authorization: `Bearer ${token}` } });
   if (response.status === 403) throw new Error("Google Calendar authorization needs the calendar.readonly scope to read Mango and Tomato labels. Reconnect Google Calendar with that scope, then synchronize again. / การอนุญาต Google Calendar ต้องมีสิทธิ์ calendar.readonly เพื่ออ่านป้ายกำกับ Mango และ Tomato โปรดเชื่อมต่อ Google Calendar ใหม่ด้วยสิทธิ์นี้ แล้วซิงค์อีกครั้ง");
   if (!response.ok) throw new Error(`Google Calendar labels returned ${response.status}: ${(await response.text()).slice(0, 400)}`);
   const data = await response.json() as CalendarLabelsResponse;
-  return new Map((data.labelProperties?.eventLabels ?? []).flatMap((label) => label.id && label.name ? [[label.id, label.name] as const] : []));
+  return new Map<string, GoogleCalendarLabel>((data.labelProperties?.eventLabels ?? []).flatMap((label) => label.id ? [[label.id, { backgroundColor: label.backgroundColor }] as const] : []));
 }
 
 async function performSync(ctx: ActionCtx, token: string, channel: Doc<"googleCalendarChannels">, forceFull = false) {
-  const labelNames = await calendarLabelNames(token, channel.calendarId);
+  const labels = await calendarLabels(token, channel.calendarId);
   const syncToken = forceFull ? undefined : channel.syncToken;
   let generation: number | undefined;
   if (!syncToken) {
@@ -81,7 +81,7 @@ async function performSync(ctx: ActionCtx, token: string, channel: Doc<"googleCa
     const page = await listEventsPage(token, channel.calendarId, syncToken, pageToken);
     const items = page.items ?? [];
     fetched += items.length;
-    const active = normalizeGoogleEvents(items, labelNames);
+    const active = normalizeGoogleEvents(items, labels);
     const cancelledEventIds = items.filter((event) => event.status === "cancelled" && event.id).map((event) => event.id!);
     const result: { imported: number } = await ctx.runMutation(internal.calendarSyncData.applyEventChanges, { villaId: channel.villaId, events: active, cancelledEventIds, fullSyncGeneration: generation });
     imported += result.imported; pageToken = page.nextPageToken; nextSyncToken = page.nextSyncToken ?? nextSyncToken;

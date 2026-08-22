@@ -4,7 +4,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { requireSuperadmin, sessionUserValidator } from "./lib/access";
 import { googleCalendarChannelDocumentValidator, villaDocumentValidator } from "./lib/documentValidators";
 
-const importedEventValidator = v.object({ externalEventId: v.string(), startDate: v.string(), endDate: v.string(), name: v.string(), description: v.optional(v.string()), kind: v.union(v.literal("booking"), v.literal("closed"), v.literal("reminder")), labelName: v.optional(v.string()) });
+const importedEventValidator = v.object({ externalEventId: v.string(), startDate: v.string(), endDate: v.string(), name: v.string(), description: v.optional(v.string()), kind: v.union(v.literal("booking"), v.literal("closed"), v.literal("ignored")) });
 
 export const requireSyncAccess = internalQuery({ args: {}, returns: sessionUserValidator, handler: async (ctx) => await requireSuperadmin(ctx) });
 
@@ -65,10 +65,8 @@ export const stopChannel = internalMutation({
     if (channel) await ctx.db.patch("googleCalendarChannels", channel._id, { status: "stopped", syncInProgress: false, pendingNotification: false, syncToken: undefined });
     if (args.removeBlocks) {
       const blocks = await ctx.db.query("availabilityBlocks").withIndex("by_villaId_and_startDate", (q) => q.eq("villaId", args.villaId)).take(201);
-      const reminders = await ctx.db.query("calendarReminders").withIndex("by_villaId_and_startDate", (q) => q.eq("villaId", args.villaId)).take(201);
-      if (blocks.length > 200 || reminders.length > 200) { blocks.pop(); reminders.pop(); await ctx.scheduler.runAfter(0, internal.calendarSyncData.stopChannel, args); }
+      if (blocks.length > 200) { blocks.pop(); await ctx.scheduler.runAfter(0, internal.calendarSyncData.stopChannel, args); }
       for (const block of blocks) await ctx.db.delete("availabilityBlocks", block._id);
-      for (const reminder of reminders) await ctx.db.delete("calendarReminders", reminder._id);
     }
     return null;
   },
@@ -116,21 +114,14 @@ export const applyEventChanges = internalMutation({
     let imported = 0;
     for (const externalEventId of args.cancelledEventIds) {
       const rows = await ctx.db.query("availabilityBlocks").withIndex("by_villaId_and_externalEventId", (q) => q.eq("villaId", args.villaId).eq("externalEventId", externalEventId)).take(10);
-      const reminders = await ctx.db.query("calendarReminders").withIndex("by_villaId_and_externalEventId", (q) => q.eq("villaId", args.villaId).eq("externalEventId", externalEventId)).take(10);
       for (const row of rows) await ctx.db.delete("availabilityBlocks", row._id);
-      for (const reminder of reminders) await ctx.db.delete("calendarReminders", reminder._id);
     }
     for (const event of args.events) {
       const rows = await ctx.db.query("availabilityBlocks").withIndex("by_villaId_and_externalEventId", (q) => q.eq("villaId", args.villaId).eq("externalEventId", event.externalEventId)).take(10);
-      const reminders = await ctx.db.query("calendarReminders").withIndex("by_villaId_and_externalEventId", (q) => q.eq("villaId", args.villaId).eq("externalEventId", event.externalEventId)).take(10);
-      if (event.kind === "reminder") {
+      if (event.kind === "ignored") {
         for (const row of rows) await ctx.db.delete("availabilityBlocks", row._id);
-        const value = { startDate: event.startDate, endDate: event.endDate, name: event.name, description: event.description, labelName: event.labelName ?? "Mango", fullSyncGeneration: args.fullSyncGeneration };
-        if (reminders[0]) await ctx.db.patch("calendarReminders", reminders[0]._id, value); else await ctx.db.insert("calendarReminders", { villaId: args.villaId, externalEventId: event.externalEventId, ...value });
-        for (const duplicate of reminders.slice(1)) await ctx.db.delete("calendarReminders", duplicate._id);
         continue;
       }
-      for (const reminder of reminders) await ctx.db.delete("calendarReminders", reminder._id);
       const value = { startDate: event.startDate, endDate: event.endDate, name: event.name, description: event.description, kind: event.kind, fullSyncGeneration: args.fullSyncGeneration };
       if (rows[0]) await ctx.db.patch("availabilityBlocks", rows[0]._id, value); else { await ctx.db.insert("availabilityBlocks", { villaId: args.villaId, externalEventId: event.externalEventId, ...value }); imported += 1; }
       for (const duplicate of rows.slice(1)) await ctx.db.delete("availabilityBlocks", duplicate._id);
@@ -143,10 +134,8 @@ export const cleanupFullSync = internalMutation({
   args: { villaId: v.id("villas"), generation: v.number() }, returns: v.number(),
   handler: async (ctx, args) => {
     const staleBlocks = await ctx.db.query("availabilityBlocks").withIndex("by_villaId_and_fullSyncGeneration", (q) => q.eq("villaId", args.villaId).lt("fullSyncGeneration", args.generation)).take(100);
-    const staleReminders = await ctx.db.query("calendarReminders").withIndex("by_villaId_and_fullSyncGeneration", (q) => q.eq("villaId", args.villaId).lt("fullSyncGeneration", args.generation)).take(100);
     for (const row of staleBlocks) await ctx.db.delete("availabilityBlocks", row._id);
-    for (const row of staleReminders) await ctx.db.delete("calendarReminders", row._id);
-    return staleBlocks.length + staleReminders.length;
+    return staleBlocks.length;
   },
 });
 

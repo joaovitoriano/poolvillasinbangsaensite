@@ -52,10 +52,6 @@ export default defineSchema({
     name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), kind: v.optional(v.union(v.literal("booking"), v.literal("closed"))), fullSyncGeneration: v.optional(v.number()),
   }).index("by_villaId_and_startDate", ["villaId", "startDate"]).index("by_villaId_and_endDate", ["villaId", "endDate"]).index("by_villaId_and_externalEventId", ["villaId", "externalEventId"]).index("by_villaId_and_fullSyncGeneration", ["villaId", "fullSyncGeneration"]),
 
-  calendarReminders: defineTable({
-    villaId: v.id("villas"), startDate: v.string(), endDate: v.string(), name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), labelName: v.string(), fullSyncGeneration: v.optional(v.number()),
-  }).index("by_villaId_and_startDate", ["villaId", "startDate"]).index("by_villaId_and_externalEventId", ["villaId", "externalEventId"]).index("by_villaId_and_fullSyncGeneration", ["villaId", "fullSyncGeneration"]),
-
   bookingRequests: defineTable({
     idempotencyKey: v.string(), villaId: v.id("villas"), checkIn: v.string(), checkOut: v.string(), guestCount: v.optional(v.number()),
     phone: v.optional(v.string()), lineId: v.optional(v.string()), estimatedTotalThb: v.number(), status: requestStatusValidator,
