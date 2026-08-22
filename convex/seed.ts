@@ -17,6 +17,17 @@ const houseRules = [
   ["No parties", "ห้ามจัดงานปาร์ตี้", "no-parties"],
 ] as const;
 
+const verifiedFixturePhotos = [
+  ["canary-pool-villa-bangsaen", "https://sgp1.digitaloceanspaces.com/villapaza-spaces/public/images/house/8c2bdd04-ab35-488f-ab5d-cfc183a190f3_1770627887000.webp"],
+  ["okinawa-pool-villa-bangsaen", "https://admin.pattayavillaresort.com/assets/4896d138-1862-4600-a056-a427cbc132e4"],
+  ["terrace-house-bangsaen", "https://admin.pattayavillaresort.com/assets/67bfe361-6b5d-4407-8c13-7f70181ca27f"],
+  ["the-groove-pool-villa-bangsaen", "https://admin.pattayavillaresort.com/assets/5c0ad757-cadb-420e-9fce-746ef1572c34"],
+  ["black-moon-pool-villa-bangsaen", "https://admin.pattayavillaresort.com/assets/622c9a5e-4e98-4171-a07a-3d94d31ec992"],
+  ["siri-pool-villa-bangsaen-1", "https://www.thaimiceconnect.com/images/upload/images/bu/43192/D6CE61E1-6462-49E1-9841-6EB393E7CD3F.jpeg"],
+  ["siri-pool-villa-bangsaen-2", "https://www.thaimiceconnect.com/images/upload/images/bu/43192/D6CE61E1-6462-49E1-9841-6EB393E7CD3F.jpeg"],
+  ["ivada-pool-villa-bangsaen", "https://res.cloudinary.com/vucxmv6l/image/upload/w_1600,q_auto,f_auto/v1785601405/athome/villa4/dwzqaxeee4omzmtwwtin.jpg"],
+] as const;
+
 const villaFixtures = [
   {
     "slug": "canary-pool-villa-bangsaen",
@@ -366,6 +377,26 @@ const villaFixtures = [
     "checkInTime": "14:00",
     "checkOutTime": "11:00",
     "sortOrder": 17
+  },
+  {
+    "slug": "ivada-pool-villa-bangsaen",
+    "nameEn": "I VADA Pool Villa Bangsaen",
+    "nameTh": "ไอ วาดะ พูลวิลล่า บางแสน",
+    "nameSource": "I VADA Pool Villa Bangsaen",
+    "descriptionEn": "I VADA is an At Home Pool Villa in Bangsaen with three bedrooms, four bathrooms, a private pool, karaoke, Smart TV, air conditioning and barbecue facilities. Its current listing states capacity for 12–15 guests.",
+    "descriptionTh": "ไอ วาดะเป็นพูลวิลล่าในเครือ At Home ที่บางแสน มี 3 ห้องนอน 4 ห้องน้ำ สระว่ายน้ำส่วนตัว คาราโอเกะ สมาร์ททีวี เครื่องปรับอากาศ และอุปกรณ์บาร์บีคิว โดยหน้ารายการปัจจุบันระบุว่ารองรับได้ 12–15 คน",
+    "descriptionSource": "I VADA is an At Home Pool Villa in Bangsaen with three bedrooms, four bathrooms, a private pool, karaoke, Smart TV, air conditioning and barbecue facilities. Its current listing states capacity for 12–15 guests.",
+    "formattedAddress": "Bangsaen, Chon Buri",
+    "latitude": 13.284,
+    "longitude": 100.925,
+    "weekdayPriceThb": 8900,
+    "bedrooms": 3,
+    "bathrooms": 4,
+    "maxGuests": 15,
+    "parkingSpaces": 0,
+    "checkInTime": "14:00",
+    "checkOutTime": "11:00",
+    "sortOrder": 18
   }
 ] as const;
 
@@ -438,5 +469,31 @@ export const publishFixtures = mutation({
       villasPublished += 1;
     }
     return { villasPublished };
+  },
+});
+
+export const attachVerifiedFixturePhotos = mutation({
+  args: {},
+  returns: v.object({ photosAdded: v.number(), villasWithExistingPhotos: v.number(), villasMissing: v.number() }),
+  handler: async (ctx) => {
+    await requireSuperadmin(ctx);
+    let photosAdded = 0;
+    let villasWithExistingPhotos = 0;
+    let villasMissing = 0;
+    for (const [slug, externalUrl] of verifiedFixturePhotos) {
+      const villa = await ctx.db.query("villas").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
+      if (!villa) {
+        villasMissing += 1;
+        continue;
+      }
+      const existingPhotos = await ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villa._id)).take(1);
+      if (existingPhotos.length) {
+        villasWithExistingPhotos += 1;
+        continue;
+      }
+      await ctx.db.insert("villaPhotos", { villaId: villa._id, externalUrl, sortOrder: 1 });
+      photosAdded += 1;
+    }
+    return { photosAdded, villasWithExistingPhotos, villasMissing };
   },
 });
