@@ -256,7 +256,8 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     <div role="tablist" aria-label={copy("Villa editor sections", "ส่วนแก้ไขวิลล่า")} className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-[#dbe0db] bg-[#fbfaf6]/95 p-1 backdrop-blur md:sticky md:top-3 md:z-10 md:flex">
       {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`min-h-11 min-w-0 rounded-lg px-2 text-[11px] font-semibold leading-tight md:px-4 md:text-xs ${activeTab === id ? "bg-[#001e33] text-white" : "text-[#526266] hover:bg-white"}`}>{id === "details" ? copy(label, "รายละเอียด") : id === "location" ? copy(label, "ตำแหน่ง") : id === "pricing" ? copy(label, "ราคา") : id === "photos" ? copy(label, "รูปภาพ") : id === "experience" ? copy(label, "ประสบการณ์ผู้เข้าพัก") : copy(label, "การเชื่อมต่อ")}{validation[id]?.length ? <span className="ml-1 text-[#efb58e]">!</span> : null}</button>)}
     </div>
-    <fieldset disabled={lockedByOther} className="min-w-0 disabled:opacity-75">\n    <div role="tabpanel" className="min-w-0">
+    <fieldset disabled={lockedByOther} className="min-w-0 disabled:opacity-75">
+      <div role="tabpanel" className="min-w-0">
       {activeTab === "details" ? <div className="min-w-0 space-y-4">
         <DetailsSection draft={draft} setDraft={setDraft} />
         {villaId && status !== "archived" ? <section className="rounded-xl border border-[#deb4aa] bg-[#fffafa] p-4 sm:p-5">
