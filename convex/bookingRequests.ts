@@ -73,7 +73,7 @@ export const submit = mutation({
     if (!villa || villa.status !== "published") throw new Error("Villa not found / ไม่พบวิลล่า");
     if (args.guestCount !== undefined && args.guestCount > villa.maxGuests)
       throw new Error("Guest count exceeds villa capacity / จำนวนผู้เข้าพักเกินความจุของวิลล่า");
-    const blocks = await relevantAvailabilityBlocks(ctx, villa._id, args.checkOut);
+    const blocks = await relevantAvailabilityBlocks(ctx, villa._id, args.checkIn, args.checkOut);
     if (blocks.some((block) => rangesOverlap(args.checkIn, args.checkOut, block.startDate, block.endDate)))
       throw new Error("These dates are no longer available / วันที่เลือกไม่ว่างแล้ว");
     const rates = await relevantSpecialRates(ctx, villa._id, args.checkOut);

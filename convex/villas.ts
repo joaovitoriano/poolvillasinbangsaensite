@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import { relevantAvailabilityBlocks, relevantSpecialRates } from "./lib/boundedData";
-import { assertDateRange, rangesOverlap } from "./lib/dates";
+import { assertDateRange, dateInBangkok, rangesOverlap } from "./lib/dates";
 import {
   amenityDocumentValidator,
   houseRuleDocumentValidator,
@@ -72,7 +72,7 @@ export const search = query({
     for (const villa of villas) {
       const amenities = await amenitiesFor(ctx, villa._id);
       if (args.amenitySlugs?.length && !args.amenitySlugs.every((slug) => amenities.some((item) => item.slug === slug))) continue;
-      const blocks = args.checkIn && args.checkOut ? await relevantAvailabilityBlocks(ctx, villa._id, args.checkOut) : [];
+      const blocks = args.checkIn && args.checkOut ? await relevantAvailabilityBlocks(ctx, villa._id, args.checkIn, args.checkOut) : [];
       const available = !args.checkIn || !args.checkOut || !blocks.some((block) => rangesOverlap(args.checkIn!, args.checkOut!, block.startDate, block.endDate));
       const photos = await photosFor(ctx, villa._id);
       result.push({ ...villa, available, mainPhotoUrl: photos[0]?.url ?? null, amenities: amenities.slice(0, 8) });
@@ -106,7 +106,7 @@ export const getBySlug = query({
       ctx.db.query("villaHouseRules").withIndex("by_villaId", (q) => q.eq("villaId", villa._id)).take(100),
       amenitiesFor(ctx, villa._id),
       relevantSpecialRates(ctx, villa._id, "9999-12-31"),
-      relevantAvailabilityBlocks(ctx, villa._id, "9999-12-31"),
+      relevantAvailabilityBlocks(ctx, villa._id, dateInBangkok(Date.now()), "9999-12-31"),
     ]);
     const rules = (await Promise.all(ruleLinks.map((link) => ctx.db.get("houseRules", link.houseRuleId)))).filter((item) => item !== null);
     const relatedRows = (await ctx.db.query("villas").withIndex("by_status_and_sortOrder", (q) => q.eq("status", "published")).take(20))
@@ -126,7 +126,7 @@ export const quote = query({
     assertDateRange(args.checkIn, args.checkOut);
     const villa = await ctx.db.get("villas", args.villaId);
     if (!villa || villa.status !== "published") throw new Error("Villa not found / ไม่พบวิลล่า");
-    const blocks = await relevantAvailabilityBlocks(ctx, villa._id, args.checkOut);
+    const blocks = await relevantAvailabilityBlocks(ctx, villa._id, args.checkIn, args.checkOut);
     if (blocks.some((block) => rangesOverlap(args.checkIn, args.checkOut, block.startDate, block.endDate)))
       return { available: false as const, nights: [], totalThb: 0 };
     const rates = await relevantSpecialRates(ctx, villa._id, args.checkOut);

@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { api } from "@/convex/_generated/api";
 import { AdminEmptyState, AdminPanel, AdminSkeleton } from "./AdminUI";
 import { useAdminLocale } from "./AdminLocale";
-import { eventVisualEndExclusive, isClosedEventTitle, layoutCalendarEvents } from "./calendar-event-layout";
+import { eventVisualEndExclusive, layoutCalendarEvents } from "./calendar-event-layout";
 import { plainTextFromRichText, SafeRichText } from "./SafeRichText";
 
 const DAY_MS = 86_400_000;
@@ -260,7 +260,7 @@ function MobileDayHeader({ day, locale, today }: { day: Date; locale: "en" | "th
 
 function AvailabilityCell({ item, date, today, copy, gridColumn, rowSpan }: { item: PortfolioItem; date: string; today: string; copy: (english: string, thai: string) => string; gridColumn: number; rowSpan: number }) {
   const blocks = item.blocks.filter((candidate) => candidate.startDate <= date && eventVisualEndExclusive(candidate) > date);
-  const title = blocks.length ? blocks.map((block) => isClosedEventTitle(block.name) ? copy(`Closed · ${block.name}`, `ปิด · ${block.name}`) : block.endDate === date ? copy(`Checkout · ${block.name}`, `เช็กเอาต์ · ${block.name}`) : copy(`Booked · ${block.name}`, `จองแล้ว · ${block.name}`)).join("; ") : copy("Available", "ว่าง");
+  const title = blocks.length ? blocks.map((block) => block.kind === "closed" ? copy(`Closed · ${block.name}`, `ปิด · ${block.name}`) : copy(`Booked · ${block.name}`, `จองแล้ว · ${block.name}`)).join("; ") : copy("Available", "ว่าง");
   return <div role="cell" aria-label={`${date}: ${title}`} style={{ gridColumn, gridRow: `1 / span ${rowSpan}` }} className={`h-full border-r border-[#ece7df] bg-white ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`} />;
 }
 
@@ -271,7 +271,7 @@ function CalendarEventBox({ block, lane, locale, copy, gridStart, gridEnd, layou
   const pointerType = useRef<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const closed = isClosedEventTitle(block.name);
+  const closed = block.kind === "closed";
   const plainName = plainTextFromRichText(block.name);
   const title = closed ? copy(`Closed · ${plainName}`, `ปิด · ${plainName}`) : copy(`Booked · ${plainName}`, `จองแล้ว · ${plainName}`);
   const layoutVisible = layout === "mobile" ? compactViewport : !compactViewport;

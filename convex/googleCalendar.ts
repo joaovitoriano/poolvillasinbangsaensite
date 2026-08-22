@@ -11,6 +11,8 @@ const RENEW_BEFORE_MS = 24 * 60 * 60_000;
 
 class SyncTokenExpiredError extends Error {}
 
+type CalendarLabelsResponse = { labelProperties?: { eventLabels?: Array<{ id?: string; name?: string }> } };
+
 async function accessToken() {
   const clientId = env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
@@ -48,13 +50,8 @@ async function stopWatch(token: string, channel: Pick<Doc<"googleCalendarChannel
 }
 
 async function listEventsPage(token: string, calendarId: string, syncToken?: string, pageToken?: string) {
-  const params = new URLSearchParams({ singleEvents: "true", showDeleted: "true", maxResults: "200" });
+  const params = new URLSearchParams({ singleEvents: "true", showDeleted: "true", maxResults: "200", eventLabelVersion: "1" });
   if (syncToken) params.set("syncToken", syncToken);
-  else {
-    const now = new Date();
-    params.set("timeMin", new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString());
-    params.set("timeMax", new Date(Date.UTC(now.getUTCFullYear() + 2, now.getUTCMonth() + 2, 1)).toISOString());
-  }
   if (pageToken) params.set("pageToken", pageToken);
   const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`, { headers: { Authorization: `Bearer ${token}` } });
   if (response.status === 410) throw new SyncTokenExpiredError("Google Calendar sync token expired");
@@ -62,7 +59,16 @@ async function listEventsPage(token: string, calendarId: string, syncToken?: str
   return await response.json() as { items?: GoogleCalendarEvent[]; nextPageToken?: string; nextSyncToken?: string };
 }
 
+async function calendarLabelNames(token: string, calendarId: string) {
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 403) throw new Error("Google Calendar authorization needs the calendar.readonly scope to read Mango and Tomato labels. Reconnect Google Calendar with that scope, then synchronize again. / การอนุญาต Google Calendar ต้องมีสิทธิ์ calendar.readonly เพื่ออ่านป้ายกำกับ Mango และ Tomato โปรดเชื่อมต่อ Google Calendar ใหม่ด้วยสิทธิ์นี้ แล้วซิงค์อีกครั้ง");
+  if (!response.ok) throw new Error(`Google Calendar labels returned ${response.status}: ${(await response.text()).slice(0, 400)}`);
+  const data = await response.json() as CalendarLabelsResponse;
+  return new Map((data.labelProperties?.eventLabels ?? []).flatMap((label) => label.id && label.name ? [[label.id, label.name] as const] : []));
+}
+
 async function performSync(ctx: ActionCtx, token: string, channel: Doc<"googleCalendarChannels">, forceFull = false) {
+  const labelNames = await calendarLabelNames(token, channel.calendarId);
   const syncToken = forceFull ? undefined : channel.syncToken;
   let generation: number | undefined;
   if (!syncToken) {
@@ -70,18 +76,19 @@ async function performSync(ctx: ActionCtx, token: string, channel: Doc<"googleCa
     if (started === null) return 0;
     generation = started;
   }
-  let pageToken: string | undefined; let nextSyncToken: string | undefined; let imported = 0;
+  let pageToken: string | undefined; let nextSyncToken: string | undefined; let imported = 0; let fetched = 0;
   do {
     const page = await listEventsPage(token, channel.calendarId, syncToken, pageToken);
     const items = page.items ?? [];
-    const active = normalizeGoogleEvents(items);
+    fetched += items.length;
+    const active = normalizeGoogleEvents(items, labelNames);
     const cancelledEventIds = items.filter((event) => event.status === "cancelled" && event.id).map((event) => event.id!);
     const result: { imported: number } = await ctx.runMutation(internal.calendarSyncData.applyEventChanges, { villaId: channel.villaId, events: active, cancelledEventIds, fullSyncGeneration: generation });
     imported += result.imported; pageToken = page.nextPageToken; nextSyncToken = page.nextSyncToken ?? nextSyncToken;
   } while (pageToken);
   if (!nextSyncToken) throw new Error("Google Calendar did not return a next sync token / Google Calendar ไม่ได้ส่งคืนโทเค็นซิงค์ถัดไป");
   if (generation !== undefined) while (await ctx.runMutation(internal.calendarSyncData.cleanupFullSync, { villaId: channel.villaId, generation }) > 0) { /* bounded cleanup batches */ }
-  await ctx.runMutation(internal.calendarSyncData.completeSync, { villaId: channel.villaId, channelId: channel.channelId, syncToken: nextSyncToken });
+  await ctx.runMutation(internal.calendarSyncData.completeSync, { villaId: channel.villaId, channelId: channel.channelId, syncToken: nextSyncToken, fetchedEvents: fetched, importedEvents: imported });
   return imported;
 }
 
@@ -95,9 +102,9 @@ async function syncClaimedChannel(ctx: ActionCtx, villaId: Id<"villas">, token: 
       channel = await ctx.runQuery(internal.calendarSyncData.getChannel, { villaId });
       if (!channel || channel.status !== "active") return 0;
       try { return await performSync(ctx, token, channel, true); }
-      catch (fullError) { await ctx.runMutation(internal.calendarSyncData.failSync, { villaId, channelId: channel.channelId }); throw fullError; }
+    catch (fullError) { await ctx.runMutation(internal.calendarSyncData.failSync, { villaId, channelId: channel.channelId, error: fullError instanceof Error ? fullError.message : "Unknown synchronization error" }); throw fullError; }
     }
-    await ctx.runMutation(internal.calendarSyncData.failSync, { villaId, channelId: channel.channelId });
+    await ctx.runMutation(internal.calendarSyncData.failSync, { villaId, channelId: channel.channelId, error: error instanceof Error ? error.message : "Unknown synchronization error" });
     throw error;
   }
 }
@@ -112,7 +119,7 @@ async function registerCalendar(ctx: ActionCtx, token: string, villaId: Id<"vill
     if (!activated) { await stopWatch(token, { channelId, resourceId: watch.resourceId }); return 0; }
     return await syncClaimedChannel(ctx, villaId, token);
   } catch (error) {
-    await ctx.runMutation(internal.calendarSyncData.markChannelError, { villaId, channelId });
+    await ctx.runMutation(internal.calendarSyncData.markChannelError, { villaId, channelId, error: error instanceof Error ? error.message : "Unknown subscription error" });
     throw error;
   }
 }
@@ -146,7 +153,7 @@ export const syncChannel = internalAction({
     if (!channel || channel.status !== "active") return null;
     let token: string;
     try { token = await accessToken(); }
-    catch (error) { await ctx.runMutation(internal.calendarSyncData.failSync, { villaId: args.villaId, channelId: channel.channelId }); throw error; }
+    catch (error) { await ctx.runMutation(internal.calendarSyncData.failSync, { villaId: args.villaId, channelId: channel.channelId, error: error instanceof Error ? error.message : "Unknown credential error" }); throw error; }
     await syncClaimedChannel(ctx, args.villaId, token);
     return null;
   },
@@ -165,7 +172,7 @@ export const renewExpiringChannels = internalAction({
         const replaced = await ctx.runMutation(internal.calendarSyncData.renewChannel, { villaId: channel.villaId, expectedChannelId: channel.channelId, channelId, channelToken, ...watch });
         if (replaced) { try { await stopWatch(token, channel); } catch { /* new channel is already authoritative */ } }
         else await stopWatch(token, { channelId, resourceId: watch.resourceId });
-      } catch { await ctx.runMutation(internal.calendarSyncData.markChannelError, { villaId: channel.villaId, channelId: channel.channelId }); }
+      } catch (error) { await ctx.runMutation(internal.calendarSyncData.markChannelError, { villaId: channel.villaId, channelId: channel.channelId, error: error instanceof Error ? error.message : "Unknown subscription renewal error" }); }
     }
     return null;
   },

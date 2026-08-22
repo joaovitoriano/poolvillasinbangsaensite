@@ -40,7 +40,7 @@ export const portfolioBlocks = query({
     assertDateRange(args.from, args.to);
     return await Promise.all(args.villaIds.map(async (villaId) => ({
       villaId,
-      blocks: (await relevantAvailabilityBlocks(ctx, villaId, args.to))
+      blocks: (await relevantAvailabilityBlocks(ctx, villaId, args.from, args.to))
         .filter((row) => row.endDate > args.from)
         .map((row) => ({ ...row, source: "google" as const })),
     })));

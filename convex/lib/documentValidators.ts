@@ -45,7 +45,7 @@ export const specialRateDocumentValidator = v.object({
 
 export const availabilityBlockDocumentValidator = v.object({
   ...system("availabilityBlocks"), villaId: v.id("villas"), startDate: v.string(), endDate: v.string(),
-  name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), fullSyncGeneration: v.optional(v.number()),
+  name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), kind: v.optional(v.union(v.literal("booking"), v.literal("closed"))), fullSyncGeneration: v.optional(v.number()),
 });
 
 export const bookingRequestDocumentValidator = v.object({
@@ -78,6 +78,7 @@ export const googleCalendarChannelDocumentValidator = v.object({
   channelId: v.string(), resourceId: v.optional(v.string()), channelToken: v.string(),
   status: v.union(v.literal("pending"), v.literal("active"), v.literal("error"), v.literal("stopped")),
   channelExpiration: v.optional(v.number()), syncToken: v.optional(v.string()), fullSyncGeneration: v.optional(v.number()),
+  lastSyncedAt: v.optional(v.number()), lastSyncError: v.optional(v.string()), lastFetchedEvents: v.optional(v.number()), lastImportedEvents: v.optional(v.number()), lastAvailabilityBlockCount: v.optional(v.number()),
   syncInProgress: v.boolean(), pendingNotification: v.boolean(), retryAttempt: v.number(), lastMessageNumber: v.optional(v.number()),
 });
 export const dailyInquiryStatDocumentValidator = v.object({

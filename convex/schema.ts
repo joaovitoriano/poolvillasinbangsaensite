@@ -49,7 +49,11 @@ export default defineSchema({
 
   availabilityBlocks: defineTable({
     villaId: v.id("villas"), startDate: v.string(), endDate: v.string(),
-    name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), fullSyncGeneration: v.optional(v.number()),
+    name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), kind: v.optional(v.union(v.literal("booking"), v.literal("closed"))), fullSyncGeneration: v.optional(v.number()),
+  }).index("by_villaId_and_startDate", ["villaId", "startDate"]).index("by_villaId_and_endDate", ["villaId", "endDate"]).index("by_villaId_and_externalEventId", ["villaId", "externalEventId"]).index("by_villaId_and_fullSyncGeneration", ["villaId", "fullSyncGeneration"]),
+
+  calendarReminders: defineTable({
+    villaId: v.id("villas"), startDate: v.string(), endDate: v.string(), name: v.string(), description: v.optional(v.string()), externalEventId: v.string(), labelName: v.string(), fullSyncGeneration: v.optional(v.number()),
   }).index("by_villaId_and_startDate", ["villaId", "startDate"]).index("by_villaId_and_externalEventId", ["villaId", "externalEventId"]).index("by_villaId_and_fullSyncGeneration", ["villaId", "fullSyncGeneration"]),
 
   bookingRequests: defineTable({
@@ -73,6 +77,7 @@ export default defineSchema({
     villaId: v.id("villas"), calendarId: v.string(), channelId: v.string(), resourceId: v.optional(v.string()), channelToken: v.string(),
     status: v.union(v.literal("pending"), v.literal("active"), v.literal("error"), v.literal("stopped")),
     channelExpiration: v.optional(v.number()), syncToken: v.optional(v.string()), fullSyncGeneration: v.optional(v.number()),
+    lastSyncedAt: v.optional(v.number()), lastSyncError: v.optional(v.string()), lastFetchedEvents: v.optional(v.number()), lastImportedEvents: v.optional(v.number()), lastAvailabilityBlockCount: v.optional(v.number()),
     syncInProgress: v.boolean(), pendingNotification: v.boolean(), retryAttempt: v.number(), lastMessageNumber: v.optional(v.number()),
   }).index("by_villaId", ["villaId"]).index("by_channelId", ["channelId"]).index("by_status_and_channelExpiration", ["status", "channelExpiration"]),
   dailyInquiryStats: defineTable({ date: v.string(), villaId: v.id("villas"), count: v.number() })

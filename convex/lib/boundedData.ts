@@ -9,18 +9,19 @@ const MAX_RELEVANT_RATES = 100;
 export async function relevantAvailabilityBlocks(
   ctx: ReadCtx,
   villaId: Id<"villas">,
+  checkIn: string,
   checkOut: string,
 ): Promise<Doc<"availabilityBlocks">[]> {
   const rows = await ctx.db
     .query("availabilityBlocks")
-    .withIndex("by_villaId_and_startDate", (q) => q.eq("villaId", villaId).lt("startDate", checkOut))
+    .withIndex("by_villaId_and_endDate", (q) => q.eq("villaId", villaId).gt("endDate", checkIn))
     .take(MAX_RELEVANT_BLOCKS + 1);
   if (rows.length > MAX_RELEVANT_BLOCKS) {
     throw new Error(
       "Availability history is too large to verify safely. Ask an administrator to archive old blocks. / ประวัติวันไม่ว่างมีจำนวนมากเกินกว่าจะตรวจสอบได้อย่างปลอดภัย โปรดติดต่อผู้ดูแลให้เก็บบล็อกเก่า",
     );
   }
-  return rows;
+  return rows.filter((row) => row.startDate < checkOut);
 }
 
 export async function relevantSpecialRates(
