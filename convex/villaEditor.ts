@@ -257,9 +257,13 @@ export const saveVillaEditor = mutation({
     for (const rule of args.rules) {
       let houseRuleId = rule.ruleId;
       if (houseRuleId && !await ctx.db.get("houseRules", houseRuleId)) houseRuleId = undefined;
-      houseRuleId ??= await ctx.db.insert("houseRules", {
-        textEn: rule.textEn.trim(), textTh: rule.textTh.trim(), textSource: rule.textSource.trim(), icon: optionalString(rule.icon),
-      });
+      if (!houseRuleId) {
+        const textEn = rule.textEn.trim();
+        const existing = await ctx.db.query("houseRules").withIndex("by_textEn", (q) => q.eq("textEn", textEn)).unique();
+        houseRuleId = existing?._id ?? await ctx.db.insert("houseRules", {
+          textEn, textTh: rule.textTh.trim(), textSource: rule.textSource.trim(), icon: optionalString(rule.icon),
+        });
+      }
       await ctx.db.insert("villaHouseRules", { villaId, houseRuleId });
     }
     for (const room of args.sleeping)

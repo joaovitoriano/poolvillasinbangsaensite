@@ -37,7 +37,8 @@ export default defineSchema({
     .index("by_villaId", ["villaId"]).index("by_amenityId", ["amenityId"]).index("by_villaId_and_amenityId", ["villaId", "amenityId"]),
   sleepingArrangements: defineTable({ villaId: v.id("villas"), bedroomNumber: v.number(), beds: v.array(bedTypeValidator) })
     .index("by_villaId_and_bedroomNumber", ["villaId", "bedroomNumber"]),
-  houseRules: defineTable({ textEn: v.string(), textTh: v.string(), textSource: v.optional(v.string()), icon: v.optional(v.string()) }),
+  houseRules: defineTable({ textEn: v.string(), textTh: v.string(), textSource: v.optional(v.string()), icon: v.optional(v.string()) })
+    .index("by_textEn", ["textEn"]),
   villaHouseRules: defineTable({ villaId: v.id("villas"), houseRuleId: v.id("houseRules") })
     .index("by_villaId", ["villaId"]).index("by_houseRuleId", ["houseRuleId"]).index("by_villaId_and_houseRuleId", ["villaId", "houseRuleId"]),
 
