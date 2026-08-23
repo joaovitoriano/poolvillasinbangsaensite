@@ -3,7 +3,7 @@
 import { rectSortingStrategy } from "@dnd-kit/sortable";
 import { Check, Copy, ImagePlus, Link2, Share2, Trash2, Undo2 } from "lucide-react";
 import Image from "next/image";
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { AdminButton, AdminEmptyState, AdminField, AdminNotice, ConfirmDialog } from "../AdminUI";
 import { AdminDragHandle, AdminSortableItem, AdminSortableList } from "../AdminSortable";
 import { useAdminLocale } from "../AdminLocale";
@@ -11,8 +11,30 @@ import { useViewportEdgeAutoScroll } from "../useViewportEdgeAutoScroll";
 import type { PhotoDraft } from "./model";
 import { newKey } from "./model";
 
+function PhotoThumbnail({ photo, sizes }: { photo: PhotoDraft; sizes: string }) {
+  const preferredSource = photo.thumbnailUrl || photo.url;
+  const [source, setSource] = useState(preferredSource);
+
+  useEffect(() => setSource(preferredSource), [preferredSource]);
+
+  if (!source) return null;
+  return (
+    <Image
+      src={source}
+      alt=""
+      fill
+      unoptimized
+      sizes={sizes}
+      className="object-cover"
+      onError={() => {
+        if (photo.url && source !== photo.url) setSource(photo.url);
+      }}
+    />
+  );
+}
+
 function PhotoDragPreview({ photo }: { photo: PhotoDraft }) {
-  return <article className="h-full w-full overflow-hidden rounded-xl border border-[#0f6474] bg-white shadow-lg ring-2 ring-[#0f6474]/20"><div className="relative aspect-square w-full overflow-hidden bg-[#e6e0d5]">{photo.url ? <Image src={photo.thumbnailUrl || photo.url} alt="" fill unoptimized={Boolean(photo.file || photo.externalUrl)} sizes="280px" className="object-cover" /> : null}</div></article>;
+  return <article className="h-full w-full overflow-hidden rounded-xl border border-[#0f6474] bg-white shadow-lg ring-2 ring-[#0f6474]/20"><div className="relative aspect-square w-full overflow-hidden bg-[#e6e0d5]"><PhotoThumbnail photo={photo} sizes="280px" /></div></article>;
 }
 
 export function VillaPhotoEditor({ photos, onChange }: { photos: PhotoDraft[]; onChange: (photos: PhotoDraft[]) => void }) {
@@ -131,7 +153,7 @@ export function VillaPhotoEditor({ photos, onChange }: { photos: PhotoDraft[]; o
           {photos.map((photo, index) => {
             const isSelected = selected.has(photo.key);
             const photoContent = <>
-              {photo.url ? <Image src={photo.thumbnailUrl || photo.url} alt="" fill unoptimized={Boolean(photo.file || photo.externalUrl)} sizes="(min-width:1024px) 240px, (min-width:640px) 33vw, 100vw" className="object-cover" /> : null}
+              <PhotoThumbnail photo={photo} sizes="(min-width:1024px) 240px, (min-width:640px) 33vw, 100vw" />
               {index === 0 ? <span className="absolute left-2 top-2 rounded-md bg-[#001e33] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{copy("Cover", "ภาพปก")}</span> : null}
               {photo.file ? <span className="absolute bottom-2 left-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-semibold text-[#001e33]">{copy("Pending upload", "รออัปโหลด")}</span> : null}
               {selectMode ? <span className={`absolute right-2 top-2 grid size-6 place-items-center rounded-full border text-xs ${isSelected ? "border-[#0f6474] bg-[#0f6474] text-white" : "border-white/80 bg-black/25 text-white"}`}>{isSelected ? "✓" : ""}</span> : null}
