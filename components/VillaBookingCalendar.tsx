@@ -340,6 +340,8 @@ function VillaBookingCalendarContent(props: CalendarProps) {
           (atUtc(checkOut).getTime() - atUtc(checkIn).getTime()) / 86_400_000,
         )
       : 0;
+  const hasSelectedStay = Boolean(checkIn && checkOut);
+  const showContact = hasSelectedStay && quote?.available === true;
   const compactDate = (value: string) =>
     new Intl.DateTimeFormat(th ? "th-TH" : "en-GB", {
       day: "numeric",
@@ -375,7 +377,8 @@ function VillaBookingCalendarContent(props: CalendarProps) {
             </span>
           </div>
         </div>
-        <div className="mt-7 overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-[0_18px_50px_rgba(0,19,38,.08)]">
+        <div className="mt-7 rounded-2xl shadow-[0_18px_50px_rgba(0,19,38,.08)]">
+        <div className={`overflow-hidden border border-[var(--line)] bg-white ${hasSelectedStay ? "rounded-t-2xl border-b-0" : "rounded-2xl"}`}>
           <div className="flex items-center justify-between px-3 pb-4 pt-4 sm:px-6 sm:pt-5">
             <button
               type="button"
@@ -519,21 +522,8 @@ function VillaBookingCalendarContent(props: CalendarProps) {
             })}
           </div>
         </div>
-        <div aria-live="polite" className="mt-5">
-          {selectionError ? (
-            <p
-              role="alert"
-              className="rounded-xl border border-[#e6b8ad] bg-[#fff5f2] p-3 text-sm font-semibold text-[#963b30]"
-            >
-              {selectionError}
-            </p>
-          ) : anchor ? (
-            <p className="rounded-xl bg-white p-3 text-center text-sm font-semibold shadow-sm">
-              {copy.selectEnd}
-            </p>
-          ) : null}
-          {checkIn && checkOut ? (
-            <div className="rounded-2xl border border-[var(--line)] bg-white p-4 shadow-[0_12px_32px_rgba(0,19,38,.06)] sm:p-5">
+        {hasSelectedStay ? (
+            <div aria-live="polite" className={`border border-[var(--line)] bg-white p-4 sm:p-5 ${showContact ? "border-b-0" : "rounded-b-2xl"}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="font-mono text-[9px] font-bold uppercase tracking-[.14em] text-[var(--soft)]">
@@ -588,10 +578,9 @@ function VillaBookingCalendarContent(props: CalendarProps) {
                 )}
               </div>
             </div>
-          ) : null}
-        </div>
-        {checkIn && checkOut && quote?.available === true ? (
-          <div className="mt-5 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[0_12px_32px_rgba(0,19,38,.06)]">
+        ) : null}
+        {showContact ? (
+          <div className="rounded-b-2xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr_auto] lg:items-end">
               <div>
                 <h3 className="font-serif text-2xl font-semibold">
@@ -682,6 +671,23 @@ function VillaBookingCalendarContent(props: CalendarProps) {
                 </div>
               </div>
             ) : null}
+          </div>
+        ) : null}
+        </div>
+        {selectionError || anchor ? (
+          <div aria-live="polite" className="mt-5">
+            {selectionError ? (
+              <p
+                role="alert"
+                className="rounded-xl border border-[#e6b8ad] bg-[#fff5f2] p-3 text-sm font-semibold text-[#963b30]"
+              >
+                {selectionError}
+              </p>
+            ) : (
+              <p className="rounded-xl bg-white p-3 text-center text-sm font-semibold shadow-sm">
+                {copy.selectEnd}
+              </p>
+            )}
           </div>
         ) : null}
       </div>
