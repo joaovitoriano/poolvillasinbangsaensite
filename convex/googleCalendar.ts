@@ -145,6 +145,34 @@ async function reconcileAll(ctx: ActionCtx, token: string) {
 
 export const reconcileSubscriptions = internalAction({ args: {}, returns: v.null(), handler: async (ctx) => { const token = await accessToken(); await reconcileAll(ctx, token); return null; } });
 
+export const reconcileVilla = internalAction({
+  args: { villaId: v.id("villas") }, returns: v.null(),
+  handler: async (ctx, args) => {
+    const villa = await ctx.runQuery(internal.calendarSyncData.getVilla, { villaId: args.villaId });
+    const existing = await ctx.runQuery(internal.calendarSyncData.getChannel, { villaId: args.villaId });
+    const calendarId = villa?.status !== "archived" ? villa?.googleCalendarId?.trim() : undefined;
+    if (!calendarId) {
+      if (!existing) return null;
+      try {
+        const token = await accessToken();
+        await stopWatch(token, existing);
+      } catch {
+        // Stopping locally still invalidates any notification from the old channel.
+      }
+      await ctx.runMutation(internal.calendarSyncData.stopChannel, { villaId: args.villaId, removeBlocks: true });
+      return null;
+    }
+    const token = await accessToken();
+    if (existing?.calendarId === calendarId && existing.status === "active") {
+      const claimed = await ctx.runMutation(internal.calendarSyncData.claimSync, { villaId: args.villaId });
+      if (claimed) await syncClaimedChannel(ctx, args.villaId, token, true);
+      return null;
+    }
+    await registerCalendar(ctx, token, args.villaId, calendarId, existing);
+    return null;
+  },
+});
+
 export const syncChannel = internalAction({
   args: { villaId: v.id("villas"), alreadyClaimed: v.optional(v.boolean()) }, returns: v.null(),
   handler: async (ctx, args) => {

@@ -1,4 +1,5 @@
 import { type Infer, v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
@@ -192,9 +193,12 @@ export const saveVillaEditor = mutation({
     const now = Date.now();
     let villaId = args.villaId;
     let lockId: Id<"villaEditSessions"> | null = null;
+    let previousGoogleCalendarId: string | undefined;
+    const nextGoogleCalendarId = optionalString(args.villa.googleCalendarId);
     if (villaId) {
       const villa = await ctx.db.get("villas", villaId);
       if (!villa) throw new Error("Villa not found / ไม่พบวิลล่า");
+      previousGoogleCalendarId = optionalString(villa.googleCalendarId ?? null);
       lockId = (await assertEditSession(ctx, villaId, actor.workosUserId, args.sessionId))._id;
       await ctx.db.replace("villas", villaId, {
         slug: args.villa.slug.trim(), status: villa.status,
@@ -205,7 +209,7 @@ export const saveVillaEditor = mutation({
         bedrooms: args.villa.bedrooms, bathrooms: args.villa.bathrooms, maxGuests: args.villa.maxGuests, parkingSpaces: args.villa.parkingSpaces,
         checkInTime: args.villa.checkInTime, checkOutTime: args.villa.checkOutTime,
         securityDepositThb: args.villa.securityDepositThb ?? undefined, sortOrder: args.villa.sortOrder,
-        googleCalendarId: optionalString(args.villa.googleCalendarId), updatedAt: now,
+        googleCalendarId: nextGoogleCalendarId, updatedAt: now,
       });
     } else {
       villaId = await ctx.db.insert("villas", {
@@ -217,7 +221,7 @@ export const saveVillaEditor = mutation({
         bedrooms: args.villa.bedrooms, bathrooms: args.villa.bathrooms, maxGuests: args.villa.maxGuests, parkingSpaces: args.villa.parkingSpaces,
         checkInTime: args.villa.checkInTime, checkOutTime: args.villa.checkOutTime,
         securityDepositThb: args.villa.securityDepositThb ?? undefined, sortOrder: args.villa.sortOrder,
-        googleCalendarId: optionalString(args.villa.googleCalendarId), updatedAt: now,
+        googleCalendarId: nextGoogleCalendarId, updatedAt: now,
       });
     }
 
@@ -270,6 +274,9 @@ export const saveVillaEditor = mutation({
       await ctx.db.insert("sleepingArrangements", { villaId, bedroomNumber: room.bedroomNumber, beds: room.beds });
     if (lockId) await ctx.db.delete(lockId);
     await writeAudit(ctx, actor, args.villaId ? "update" : "create", "villa", villaId);
+    if (previousGoogleCalendarId !== nextGoogleCalendarId) {
+      await ctx.scheduler.runAfter(0, internal.googleCalendar.reconcileVilla, { villaId });
+    }
     return { villaId, updatedAt: now };
   },
 });

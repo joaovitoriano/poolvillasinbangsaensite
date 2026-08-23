@@ -18,6 +18,7 @@ export const getSyncState = internalQuery({
 
 export const listChannels = internalQuery({ args: {}, returns: v.array(googleCalendarChannelDocumentValidator), handler: async (ctx) => await ctx.db.query("googleCalendarChannels").take(200) });
 export const getChannel = internalQuery({ args: { villaId: v.id("villas") }, returns: v.union(v.null(), googleCalendarChannelDocumentValidator), handler: async (ctx, args) => await ctx.db.query("googleCalendarChannels").withIndex("by_villaId", (q) => q.eq("villaId", args.villaId)).unique() });
+export const getVilla = internalQuery({ args: { villaId: v.id("villas") }, returns: v.union(v.null(), villaDocumentValidator), handler: async (ctx, args) => await ctx.db.get("villas", args.villaId) });
 
 export const initializeChannel = internalMutation({
   args: { villaId: v.id("villas"), calendarId: v.string(), channelId: v.string(), channelToken: v.string() }, returns: v.id("googleCalendarChannels"),
