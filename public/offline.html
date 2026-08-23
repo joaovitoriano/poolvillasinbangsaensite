@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07334a" />
+    <title>Offline | ออฟไลน์</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: #fffdf8; color: #163038; }
+      main { width: min(100%, 480px); text-align: center; }
+      img { width: min(280px, 75vw); height: auto; margin-bottom: 32px; }
+      h1 { margin: 0 0 12px; color: #07334a; font-size: clamp(1.75rem, 7vw, 2.5rem); }
+      p { margin: 0; color: #68777a; line-height: 1.7; }
+      button { margin-top: 28px; min-height: 44px; padding: 10px 20px; border: 1px solid #07334a; border-radius: 12px; background: #07334a; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+      button:focus-visible { outline: 3px solid #efb58e; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/brand-logo.png" alt="Pool Villas in Bangsaen" />
+      <h1>คุณออฟไลน์อยู่</h1>
+      <p>You are offline. Please check your connection and try again.<br />โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง</p>
+      <button type="button" onclick="location.reload()">Try again · ลองอีกครั้ง</button>
+    </main>
+  </body>
+</html>
