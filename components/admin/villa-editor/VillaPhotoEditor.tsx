@@ -11,6 +11,10 @@ import { useViewportEdgeAutoScroll } from "../useViewportEdgeAutoScroll";
 import type { PhotoDraft } from "./model";
 import { newKey } from "./model";
 
+function PhotoDragPreview({ photo }: { photo: PhotoDraft }) {
+  return <article className="h-full w-full overflow-hidden rounded-xl border border-[#0f6474] bg-white shadow-lg ring-2 ring-[#0f6474]/20"><div className="relative aspect-square w-full overflow-hidden bg-[#e6e0d5]">{photo.url ? <Image src={photo.thumbnailUrl || photo.url} alt="" fill unoptimized={Boolean(photo.file || photo.externalUrl)} sizes="280px" className="object-cover" /> : null}</div></article>;
+}
+
 export function VillaPhotoEditor({ photos, onChange }: { photos: PhotoDraft[]; onChange: (photos: PhotoDraft[]) => void }) {
   const { copy } = useAdminLocale();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -119,7 +123,7 @@ export function VillaPhotoEditor({ photos, onChange }: { photos: PhotoDraft[]; o
         <AdminButton variant="secondary" className="self-end" disabled={!externalUrl.trim()} onClick={addExternal}><Link2 size={15} /> {copy("Add URL", "เพิ่ม URL")}</AdminButton>
       </div>
       {!photos.length ? <AdminEmptyState title={copy("No photos yet", "ยังไม่มีรูปภาพ")} detail={copy("Add local files or an external image URL. Photos stay staged until you save the villa.", "เพิ่มไฟล์ในเครื่องหรือ URL รูปภาพภายนอก รูปภาพจะรอจนกว่าคุณจะบันทึกวิลล่า")} /> : (
-        <AdminSortableList ids={photos.map((photo) => photo.key)} strategy={rectSortingStrategy} edgeAutoScroll onMove={(active, over) => {
+        <AdminSortableList ids={photos.map((photo) => photo.key)} strategy={rectSortingStrategy} edgeAutoScroll renderOverlay={(active) => { const photo = photos.find((item) => item.key === active); return photo ? <PhotoDragPreview photo={photo} /> : null; }} onMove={(active, over) => {
           const from = photos.findIndex((item) => item.key === active), to = photos.findIndex((item) => item.key === over);
           if (from < 0 || to < 0 || from === to) return;
           const next = [...photos]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); onChange(next);

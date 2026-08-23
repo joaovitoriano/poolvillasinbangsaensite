@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Save } from "lucide-react";
+import { GripVertical, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/convex/_generated/api";
@@ -37,8 +37,7 @@ function VillaListItem({
       id={villa._id}
       as="article"
       disabled={!canReorder}
-      dragFromItem
-      className={(dragging) => `rounded-xl border border-[#e0e2de] bg-white p-3 transition sm:px-4 sm:py-3 ${canReorder ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "border-[#0f6474] bg-[#f2f8f5] opacity-75 ring-2 ring-[#0f6474]/15" : "hover:border-[#c8d1cd] hover:bg-[#fcfaf6]"}`}
+      className={(dragging) => `rounded-xl border border-[#e0e2de] bg-white p-3 transition sm:px-4 sm:py-3 ${dragging ? "border-[#0f6474]" : "hover:border-[#c8d1cd] hover:bg-[#fcfaf6]"}`}
     >
       <div className="flex min-w-0 items-center gap-2">
         <AdminDragHandle disabled={!canReorder} label={copy(`Reorder ${villaName}`, `จัดลำดับ ${villaName}`)} />
@@ -48,6 +47,10 @@ function VillaListItem({
       <Link href={`/admin/villas/${villa._id}?lang=${locale}`} onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} className="mt-2.5 inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg border border-[#001e33] bg-[#001e33] px-4 text-sm font-semibold text-white transition hover:bg-[#0f6474] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c66f4e] focus-visible:ring-offset-2 sm:hidden">{copy("Edit villa", "แก้ไขวิลล่า")}</Link>
     </AdminSortableItem>
   );
+}
+
+function VillaDragPreview({ villa, locale }: { villa: Villa; locale: "en" | "th" }) {
+  return <article className="w-full rounded-xl border border-[#0f6474] bg-[#f2f8f5] p-3 shadow-lg ring-2 ring-[#0f6474]/15 sm:px-4 sm:py-3"><div className="flex min-w-0 items-center gap-2"><span className="grid size-11 shrink-0 place-items-center text-[#0f6474]"><GripVertical size={17} aria-hidden="true" /></span><h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-5 text-[#062544] sm:text-base">{locale === "th" ? villa.nameTh : villa.nameEn}</h2></div></article>;
 }
 
 export function AdminVillas() {
@@ -119,7 +122,7 @@ export function AdminVillas() {
 
       <section>
         {villas === undefined ? <div className="overflow-hidden rounded-2xl border border-[#e0e2de] bg-white"><AdminSkeleton rows={4} /></div> : villas.length === 0 ? <div className="overflow-hidden rounded-2xl border border-[#e0e2de] bg-white"><AdminEmptyState title={copy("No villas yet", "ยังไม่มีวิลล่า")} detail={copy("Add the first villa to create its permanent website page.", "เพิ่มวิลล่าแรกเพื่อสร้างหน้าเว็บไซต์ถาวร")} action={<Link href={`/admin/villas/new?lang=${locale}`} className="inline-flex min-h-11 items-center rounded-xl bg-[#001e33] px-4 text-sm font-semibold text-white">{copy("Add villa", "เพิ่มวิลล่า")}</Link>} /></div> : visible.length === 0 ? <div className="overflow-hidden rounded-2xl border border-[#e0e2de] bg-white"><AdminEmptyState title={copy("No matching villas", "ไม่พบวิลล่าที่ตรงกัน")} detail={copy("Try another name, slug, or lifecycle state.", "ลองค้นหาชื่อ slug หรือสถานะอื่น")} action={<AdminButton variant="secondary" onClick={() => { setSearch(""); setFilter("all"); }}>{copy("Reset filters", "รีเซ็ตตัวกรอง")}</AdminButton>} /></div> : (
-          <AdminSortableList ids={visible.map((villa) => villa._id)} onMove={(active, over) => moveVilla(active as Id<"villas">, completeOrder.indexOf(over as Id<"villas">))}>
+          <AdminSortableList ids={visible.map((villa) => villa._id)} onMove={(active, over) => moveVilla(active as Id<"villas">, completeOrder.indexOf(over as Id<"villas">))} renderOverlay={(active) => { const villa = villaById.get(active as Id<"villas">); return villa ? <VillaDragPreview villa={villa} locale={locale} /> : null; }}>
             <div className="space-y-3">
               {visible.map((villa) => <VillaListItem key={villa._id} villa={villa} locale={locale} copy={copy} canReorder={canReorder} />)}
             </div>
