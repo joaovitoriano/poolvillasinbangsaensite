@@ -11,6 +11,7 @@ import { eventVisualEndExclusive, layoutCalendarEvents } from "./calendar-event-
 import { plainTextFromRichText, SafeRichText } from "./SafeRichText";
 
 const DAY_MS = 86_400_000;
+const MOBILE_LABEL_WIDTH = 112;
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 function addDays(date: Date, amount: number) { const next = new Date(date); next.setUTCDate(next.getUTCDate() + amount); return next; }
 function startOfMonth(date: Date) { return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)); }
@@ -50,8 +51,7 @@ export function AdminCalendar() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const bounds = monthBounds(anchor);
   const desktopDays = useMemo(() => datesBetween(bounds.start, bounds.end), [bounds.end, bounds.start]);
-  const mobilePageStarts = carouselPageStarts(desktopDays.length);
-  const mobilePageCount = mobilePageStarts.length;
+  const mobilePageStarts = useMemo(() => carouselPageStarts(desktopDays.length), [desktopDays.length]);
   const villas = useQuery(api.availability.portfolioVillas, {});
   const villaIds = useMemo(() => villas?.map((villa) => villa._id) ?? [], [villas]);
   const blockGroups = useQuery(api.availability.portfolioBlocks, villas === undefined ? "skip" : { villaIds, from: iso(bounds.start), to: iso(bounds.end) });
@@ -64,17 +64,20 @@ export function AdminCalendar() {
     let alignedSize = "";
     const align = () => {
       const width = carousel.clientWidth;
+      const dayWidth = (width - MOBILE_LABEL_WIDTH) / 7;
+      if (dayWidth <= 0) return;
+      carousel.style.setProperty("--calendar-day-width", `${dayWidth}px`);
       const size = `${width}:${carousel.scrollWidth}`;
       if (!width || size === alignedSize) return;
       alignedSize = size;
-      carousel.scrollTo({ left: pendingPage.current * width, behavior: "auto" });
+      carousel.scrollTo({ left: mobilePageStarts[pendingPage.current] * dayWidth, behavior: "auto" });
     };
     const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(align));
     const observer = new ResizeObserver(align);
     observer.observe(carousel);
     if (carousel.firstElementChild) observer.observe(carousel.firstElementChild);
     return () => { window.cancelAnimationFrame(frame); observer.disconnect(); };
-  }, [anchor, blockGroups, villas]);
+  }, [anchor, blockGroups, mobilePageStarts, villas]);
 
   function openMonth(next: Date, page = 0) {
     const nextBounds = monthBounds(next);
@@ -92,7 +95,13 @@ export function AdminCalendar() {
   function trackCarousel() {
     const carousel = carouselRef.current;
     if (!carousel || carousel.clientWidth === 0) return;
-    const page = Math.max(0, Math.min(Math.round(carousel.scrollLeft / carousel.clientWidth), mobilePageCount - 1));
+    const dayWidth = (carousel.clientWidth - MOBILE_LABEL_WIDTH) / 7;
+    if (dayWidth <= 0) return;
+    const visibleDay = carousel.scrollLeft / dayWidth;
+    let page = 0;
+    for (let index = 1; index < mobilePageStarts.length; index += 1) {
+      if (Math.abs(mobilePageStarts[index] - visibleDay) < Math.abs(mobilePageStarts[page] - visibleDay)) page = index;
+    }
     if (page !== mobilePage) { pendingPage.current = page; setMobilePage(page); }
   }
 
@@ -110,7 +119,7 @@ export function AdminCalendar() {
       </div>
 
       <div className="md:hidden">
-        {villas === undefined ? <AdminSkeleton rows={4} /> : portfolio.length === 0 ? <AdminEmptyState title={copy("No villas available", "ยังไม่มีวิลล่า")} detail={copy("Published and draft villas will appear here.", "วิลล่าที่เผยแพร่และฉบับร่างจะแสดงที่นี่")} /> : <MobilePortfolioCarousel portfolio={portfolio} days={desktopDays} locale={locale} copy={copy} today={today} scrollRef={carouselRef} onScroll={trackCarousel} />}
+        {villas === undefined ? <AdminSkeleton rows={4} /> : portfolio.length === 0 ? <AdminEmptyState title={copy("No villas available", "ยังไม่มีวิลล่า")} detail={copy("Published and draft villas will appear here.", "วิลล่าที่เผยแพร่และฉบับร่างจะแสดงที่นี่")} /> : <MobilePortfolioCalendar portfolio={portfolio} days={desktopDays} locale={locale} copy={copy} today={today} scrollRef={carouselRef} onScroll={trackCarousel} />}
       </div>
     </AdminPanel>
 
@@ -210,14 +219,8 @@ function AdminMonthScroller({ currentMonth, locale, onMonthChange }: { currentMo
   </div>;
 }
 
-function MobilePortfolioCarousel({ portfolio, days, locale, copy, today, scrollRef, onScroll }: { portfolio: Portfolio; days: Date[]; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string; scrollRef: RefObject<HTMLDivElement | null>; onScroll: () => void }) {
-  const pages = carouselPageStarts(days.length).map((start) => days.slice(start, start + 7));
-  return <div ref={scrollRef} role="table" aria-label={copy("Villa availability", "วันว่างของวิลล่า")} onScroll={onScroll} className="flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-    {pages.map((pageDays, pageIndex) => <MobilePortfolioPage key={pageIndex} portfolio={portfolio} days={pageDays} locale={locale} copy={copy} today={today} />)}
-  </div>;
-}
-
-function MobilePortfolioPage({ portfolio, days, locale, copy, today }: { portfolio: Portfolio; days: Date[]; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string }) {
+function MobilePortfolioCalendar({ portfolio, days, locale, copy, today, scrollRef, onScroll }: { portfolio: Portfolio; days: Date[]; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string; scrollRef: RefObject<HTMLDivElement | null>; onScroll: () => void }) {
+  const pageStarts = new Set(carouselPageStarts(days.length));
   let nextGridRow = 2;
   const rows = portfolio.map((item) => {
     const segments = eventSegments(item.blocks, days);
@@ -227,25 +230,27 @@ function MobilePortfolioPage({ portfolio, days, locale, copy, today }: { portfol
     return { item, segments, laneCount, gridRowStart };
   });
 
-  return <div className="grid w-full min-w-0 flex-none snap-start snap-always bg-white" style={{ gridTemplateColumns: "112px repeat(7, minmax(0, 1fr))" }}>
-    <div role="row" className="contents">
-      <div role="columnheader" className="flex h-10 min-w-0 items-center border-b border-r border-[#ddd6ca] bg-[#f8f6f1] px-3 font-mono text-[9px] uppercase tracking-wider text-[#68777a]" style={{ gridColumn: 1, gridRow: 1 }}>{copy("Villa", "วิลล่า")}</div>
-      {days.map((day, dayIndex) => <MobileDayHeader key={iso(day)} day={day} locale={locale} today={today} gridColumn={dayIndex + 2} />)}
+  return <div ref={scrollRef} onScroll={onScroll} className="w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [--calendar-day-width:calc((100vw-112px)/7)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div role="table" aria-label={copy("Villa availability", "วันว่างของวิลล่า")} className="grid w-max min-w-full bg-white" style={{ gridTemplateColumns: `112px repeat(${days.length}, var(--calendar-day-width))` }}>
+      <div role="row" className="contents">
+        <div role="columnheader" className="sticky left-0 z-20 flex h-10 min-w-0 items-center border-b border-r border-[#ddd6ca] bg-[#f8f6f1] px-3 font-mono text-[9px] uppercase tracking-wider text-[#68777a]" style={{ gridColumn: 1, gridRow: 1 }}>{copy("Villa", "วิลล่า")}</div>
+        {days.map((day, dayIndex) => <MobileDayHeader key={iso(day)} day={day} locale={locale} today={today} gridColumn={dayIndex + 2} snapStart={pageStarts.has(dayIndex)} />)}
+      </div>
+      {rows.map(({ item, segments, laneCount, gridRowStart }, itemIndex) => <div role="row" className="contents" key={item.villa._id}>
+        <div role="rowheader" className="sticky left-0 z-10 flex min-w-0 items-center border-r border-[#ddd6ca] bg-white px-3 py-1.5" style={{ gridColumn: 1, gridRow: `${gridRowStart} / span ${laneCount}` }}><span className="block min-w-0 truncate whitespace-nowrap text-[11px] font-semibold text-[#001e33]" title={locale === "th" ? item.villa.nameTh : item.villa.nameEn}>{locale === "th" ? item.villa.nameTh : item.villa.nameEn}</span></div>
+        {days.map((day, dayIndex) => <AvailabilityCell key={iso(day)} item={item} date={iso(day)} today={today} copy={copy} gridColumn={dayIndex + 2} rowSpan={laneCount} gridRowStart={gridRowStart} />)}
+        <span aria-hidden="true" className="pointer-events-none invisible mx-0.5 my-1 px-2 py-1 text-[11px] font-semibold leading-[14px]" style={{ gridColumn: "2 / -1", gridRow: gridRowStart }}>{"\u00a0"}</span>
+        {segments.map(({ block, startIndex, endIndex, lane }) => <CalendarEventBox key={block._id} block={block} lane={lane} locale={locale} copy={copy} gridStart={startIndex + 2} gridEnd={endIndex + 2} gridRowStart={gridRowStart} layout="mobile" />)}
+        {itemIndex > 0 ? <span aria-hidden="true" className="pointer-events-none z-[5] self-start border-t border-[#d8ded9]" style={{ gridColumn: "1 / -1", gridRow: gridRowStart }} /> : null}
+      </div>)}
     </div>
-    {rows.map(({ item, segments, laneCount, gridRowStart }, itemIndex) => <div role="row" className="contents" key={item.villa._id}>
-      <div role="rowheader" className="z-[2] flex min-w-0 items-center border-r border-[#ddd6ca] bg-white px-3 py-1.5" style={{ gridColumn: 1, gridRow: `${gridRowStart} / span ${laneCount}` }}><span className="block min-w-0 truncate whitespace-nowrap text-[11px] font-semibold text-[#001e33]" title={locale === "th" ? item.villa.nameTh : item.villa.nameEn}>{locale === "th" ? item.villa.nameTh : item.villa.nameEn}</span></div>
-      {days.map((day, dayIndex) => <AvailabilityCell key={iso(day)} item={item} date={iso(day)} today={today} copy={copy} gridColumn={dayIndex + 2} rowSpan={laneCount} gridRowStart={gridRowStart} />)}
-      <span aria-hidden="true" className="pointer-events-none invisible mx-0.5 my-1 px-2 py-1 text-[11px] font-semibold leading-[14px]" style={{ gridColumn: "2 / -1", gridRow: gridRowStart }}>{"\u00a0"}</span>
-      {segments.map(({ block, startIndex, endIndex, lane }) => <CalendarEventBox key={block._id} block={block} lane={lane} locale={locale} copy={copy} gridStart={startIndex + 2} gridEnd={endIndex + 2} gridRowStart={gridRowStart} layout="mobile" />)}
-      {itemIndex > 0 ? <span aria-hidden="true" className="pointer-events-none z-[5] self-start border-t border-[#d8ded9]" style={{ gridColumn: "1 / -1", gridRow: gridRowStart }} /> : null}
-    </div>)}
   </div>;
 }
 
-function MobileDayHeader({ day, locale, today, gridColumn }: { day: Date; locale: "en" | "th"; today: string; gridColumn: number }) {
+function MobileDayHeader({ day, locale, today, gridColumn, snapStart }: { day: Date; locale: "en" | "th"; today: string; gridColumn: number; snapStart: boolean }) {
   const date = iso(day);
   const weekend = [0, 6].includes(day.getUTCDay());
-  return <div role="columnheader" style={{ gridColumn, gridRow: 1 }} className={`flex h-10 min-w-0 flex-col items-center justify-center border-b border-r border-[#ece7df] text-center ${weekend ? "bg-[#f0ece4]" : "bg-[#f8f6f1]"} ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`}><span className="block text-[8px] uppercase text-[#7b8586]">{day.toLocaleDateString(locale === "th" ? "th-TH" : "en", { weekday: "narrow", timeZone: "UTC" })}</span><strong className="block text-[10px] text-[#163038]">{day.getUTCDate()}</strong></div>;
+  return <div role="columnheader" style={{ gridColumn, gridRow: 1 }} className={`flex h-10 min-w-0 flex-col items-center justify-center border-b border-r border-[#ece7df] text-center ${snapStart ? "snap-start scroll-ml-28" : ""} ${weekend ? "bg-[#f0ece4]" : "bg-[#f8f6f1]"} ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`}><span className="block text-[8px] uppercase text-[#7b8586]">{day.toLocaleDateString(locale === "th" ? "th-TH" : "en", { weekday: "narrow", timeZone: "UTC" })}</span><strong className="block text-[10px] text-[#163038]">{day.getUTCDate()}</strong></div>;
 }
 
 function AvailabilityCell({ item, date, today, copy, gridColumn, rowSpan, gridRowStart = 1 }: { item: PortfolioItem; date: string; today: string; copy: (english: string, thai: string) => string; gridColumn: number; rowSpan: number; gridRowStart?: number }) {
