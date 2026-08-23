@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireSuperadmin } from "./lib/access";
+import { requireAdmin, requireSuperadmin } from "./lib/access";
 import { writeAudit } from "./lib/audit";
 import { siteSettingsDocumentValidator } from "./lib/documentValidators";
 import { notificationLanguageValidator } from "./lib/validators";
@@ -10,6 +10,12 @@ const publicSettingsValidator = v.object({
   businessName: v.string(), phone: v.string(), lineId: v.string(),
   defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(),
   defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(),
+});
+
+const businessSettingsValidator = v.object({
+  businessName: v.string(),
+  phone: v.string(),
+  lineId: v.string(),
 });
 
 const settingsFields = {
@@ -86,6 +92,21 @@ export const getAdmin = query({
   },
 });
 
+export const getBusinessAdmin = query({
+  args: {},
+  returns: v.union(v.null(), businessSettingsValidator),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const settings = await getSoleSettings(ctx);
+    if (!settings) return null;
+    return {
+      businessName: settings.businessName,
+      phone: settings.phone,
+      lineId: settings.lineId,
+    };
+  },
+});
+
 export const getNotificationPreviewSettings = internalQuery({
   args: {},
   returns: v.object({
@@ -157,6 +178,29 @@ export const updateChanges = mutation({
     ])) as Partial<Doc<"siteSettings">>;
     await ctx.db.patch("siteSettings", current._id, patch);
     await writeAudit(ctx, user, "update", "settings", current._id);
+    return { settingsId: current._id, changedFields };
+  },
+});
+
+export const updateBusinessSettings = mutation({
+  args: businessSettingsValidator.fields,
+  returns: v.object({ settingsId: v.id("siteSettings"), changedFields: v.array(v.string()) }),
+  handler: async (ctx, args) => {
+    const user = await requireAdmin(ctx);
+    const current = await getSoleSettings(ctx);
+    if (!current) throw new Error("Settings are not initialized / ยังไม่ได้เริ่มต้นการตั้งค่า");
+    const next = {
+      businessName: args.businessName.trim(),
+      phone: args.phone.trim(),
+      lineId: args.lineId.trim(),
+    };
+    const changedFields = (Object.keys(next) as Array<keyof typeof next>).filter(
+      (field) => next[field] !== current[field],
+    );
+    if (changedFields.length) {
+      await ctx.db.patch("siteSettings", current._id, next);
+      await writeAudit(ctx, user, "update", "settings", current._id);
+    }
     return { settingsId: current._id, changedFields };
   },
 });

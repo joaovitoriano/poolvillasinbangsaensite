@@ -26,14 +26,42 @@ import { translatedInputValue } from "./translated-input";
 
 export function AdminSuperadmin({ view, role }: { view: string; role: "admin" | "superadmin" }) {
   const { copy } = useAdminLocale();
+  if (view === "settings") return <BusinessSettingsPanel />;
   if (role !== "superadmin") return <AdminEmptyState className="border border-[#ddd6ca] bg-white" title={copy("Superadmin access required", "ต้องมีสิทธิ์ผู้ดูแลระบบขั้นสูง")} detail={copy("This workspace view changes shared access or configuration. Ask a superadmin to make the change.", "มุมมองนี้ใช้เปลี่ยนสิทธิ์หรือการตั้งค่าร่วม โปรดขอให้ผู้ดูแลระบบขั้นสูงดำเนินการ")} />;
-  if (view === "settings") return <SettingsPanel mode="business" />;
   if (view === "seo") return <SeoPanel />;
   if (view === "integrations") return <IntegrationsPanel />;
   return <AuditPanel />;
 }
 
-function SettingsPanel({ mode }: { mode: "business" | "seo" }) {
+function BusinessSettingsPanel() {
+  const { copy } = useAdminLocale();
+  const settings = useQuery(api.settings.getBusinessAdmin);
+  const update = useMutation(api.settings.updateBusinessSettings);
+  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (settings === undefined) return <AdminSkeleton rows={5} className="border border-[#ddd6ca]" />;
+  if (!settings) return <AdminEmptyState className="border border-[#ddd6ca] bg-white" title={copy("Settings are not initialized", "ยังไม่ได้เริ่มต้นการตั้งค่า")} detail={copy("Run the initial settings setup before editing.", "เริ่มต้นการตั้งค่าก่อนแก้ไข")} />;
+  const currentSettings = settings;
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const next = {
+      businessName: String(data.get("businessName")).trim(),
+      phone: String(data.get("phone")).trim(),
+      lineId: String(data.get("lineId")).trim(),
+    };
+    setBusy(true); setMessage(null);
+    try {
+      if (next.businessName !== currentSettings.businessName || next.phone !== currentSettings.phone || next.lineId !== currentSettings.lineId) await update(next);
+      setMessage({ tone: "success", text: copy("Settings saved.", "บันทึกการตั้งค่าแล้ว") });
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : copy("Settings could not be saved.", "ไม่สามารถบันทึกการตั้งค่าได้") });
+    } finally { setBusy(false); }
+  }
+  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Public business details", "ข้อมูลธุรกิจสาธารณะ")} /><div className="grid gap-4 p-4 sm:p-5"><AdminField name="businessName" label={copy("Business name", "ชื่อธุรกิจ")} defaultValue={currentSettings.businessName} required /><AdminField name="phone" label={copy("Phone", "โทรศัพท์")} defaultValue={currentSettings.phone} required /><AdminField name="lineId" label="LINE ID" defaultValue={currentSettings.lineId} required /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
+}
+
+function SettingsPanel() {
   const { copy } = useAdminLocale();
   const settings = useQuery(api.settings.getAdmin);
   const update = useMutation(api.settings.updateChanges);
@@ -48,28 +76,19 @@ function SettingsPanel({ mode }: { mode: "business" | "seo" }) {
     setBusy(true); setMessage(null);
     try {
       const changes: FunctionArgs<typeof api.settings.updateChanges> = {};
-      if (mode === "business") {
-        const businessName = String(data.get("businessName")).trim();
-        const phone = String(data.get("phone")).trim();
-        const lineId = String(data.get("lineId")).trim();
-        if (businessName !== currentSettings.businessName) changes.businessName = businessName;
-        if (phone !== currentSettings.phone) changes.phone = phone;
-        if (lineId !== currentSettings.lineId) changes.lineId = lineId;
-      } else {
-        const bilingual = await translateChangedSettingsContent({
-          title: { source: String(data.get("defaultSeoTitleSource")), previousSource: currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn, english: currentSettings.defaultSeoTitleEn, thai: currentSettings.defaultSeoTitleTh },
-          description: { source: String(data.get("defaultSeoDescriptionSource")), previousSource: currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn, english: currentSettings.defaultSeoDescriptionEn, thai: currentSettings.defaultSeoDescriptionTh },
-        });
-        if (bilingual.title.source !== (currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn)) Object.assign(changes, { defaultSeoTitleSource: bilingual.title.source, defaultSeoTitleEn: bilingual.title.english, defaultSeoTitleTh: bilingual.title.thai });
-        if (bilingual.description.source !== (currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn)) Object.assign(changes, { defaultSeoDescriptionSource: bilingual.description.source, defaultSeoDescriptionEn: bilingual.description.english, defaultSeoDescriptionTh: bilingual.description.thai });
-      }
+      const bilingual = await translateChangedSettingsContent({
+        title: { source: String(data.get("defaultSeoTitleSource")), previousSource: currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn, english: currentSettings.defaultSeoTitleEn, thai: currentSettings.defaultSeoTitleTh },
+        description: { source: String(data.get("defaultSeoDescriptionSource")), previousSource: currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn, english: currentSettings.defaultSeoDescriptionEn, thai: currentSettings.defaultSeoDescriptionTh },
+      });
+      if (bilingual.title.source !== (currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn)) Object.assign(changes, { defaultSeoTitleSource: bilingual.title.source, defaultSeoTitleEn: bilingual.title.english, defaultSeoTitleTh: bilingual.title.thai });
+      if (bilingual.description.source !== (currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn)) Object.assign(changes, { defaultSeoDescriptionSource: bilingual.description.source, defaultSeoDescriptionEn: bilingual.description.english, defaultSeoDescriptionTh: bilingual.description.thai });
       if (Object.keys(changes).length) await update(changes);
       setMessage({ tone: "success", text: copy("Settings saved.", "บันทึกการตั้งค่าแล้ว") });
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : copy("Settings could not be saved.", "ไม่สามารถบันทึกการตั้งค่าได้") });
     } finally { setBusy(false); }
   }
-  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={mode === "business" ? copy("Public business details", "ข้อมูลธุรกิจสาธารณะ") : copy("Search defaults", "ค่าเริ่มต้นสำหรับการค้นหา")} />{mode === "business" ? <div className="grid gap-4 p-4 sm:p-5"><AdminField name="businessName" label={copy("Business name", "ชื่อธุรกิจ")} defaultValue={currentSettings.businessName} required /><AdminField name="phone" label={copy("Phone", "โทรศัพท์")} defaultValue={currentSettings.phone} required /><AdminField name="lineId" label="LINE ID" defaultValue={currentSettings.lineId} required /></div> : <div className="grid gap-5 p-4 sm:p-5"><LocalizedSettingsField name="defaultSeoTitleSource" label={copy("Default SEO title", "ชื่อ SEO เริ่มต้น")} english={currentSettings.defaultSeoTitleEn} thai={currentSettings.defaultSeoTitleTh} source={currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn} /><LocalizedSettingsField multiline name="defaultSeoDescriptionSource" label={copy("Default SEO description", "คำอธิบาย SEO เริ่มต้น")} english={currentSettings.defaultSeoDescriptionEn} thai={currentSettings.defaultSeoDescriptionTh} source={currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn} /></div>}<div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
+  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Search defaults", "ค่าเริ่มต้นสำหรับการค้นหา")} /><div className="grid gap-5 p-4 sm:p-5"><LocalizedSettingsField name="defaultSeoTitleSource" label={copy("Default SEO title", "ชื่อ SEO เริ่มต้น")} english={currentSettings.defaultSeoTitleEn} thai={currentSettings.defaultSeoTitleTh} source={currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn} /><LocalizedSettingsField multiline name="defaultSeoDescriptionSource" label={copy("Default SEO description", "คำอธิบาย SEO เริ่มต้น")} english={currentSettings.defaultSeoDescriptionEn} thai={currentSettings.defaultSeoDescriptionTh} source={currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn} /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
 }
 
 function LocalizedSettingsField({ name, label, english, thai, source, guide, multiline = false }: { name: string; label: string; english: string; thai: string; source: string; guide?: number; multiline?: boolean }) {
@@ -83,7 +102,7 @@ function LocalizedSettingsField({ name, label, english, thai, source, guide, mul
 }
 
 function SeoPanel() {
-  return <SettingsPanel mode="seo" />;
+  return <SettingsPanel />;
 }
 
 function IntegrationsPanel() {
