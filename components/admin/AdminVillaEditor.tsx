@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, CheckCircle2, ExternalLink, Save } from "lucide-react";
+import { ArrowLeft, ExternalLink, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
@@ -9,7 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { compressVillaImage, createVillaThumbnail } from "@/lib/villa-image-processing";
 import { useAdminLocale } from "./AdminLocale";
 import { useAdminNavigationGuard } from "./AdminRouteShell";
-import { AdminButton, AdminNotice, AdminSkeleton, AdminStatusBadge, ConfirmDialog } from "./AdminUI";
+import { AdminButton, AdminNotice, AdminSkeleton, AdminStatusBadge, AdminToast, ConfirmDialog } from "./AdminUI";
 import { localizedInputValue } from "./localized-input";
 import { DetailsSection, GuestExperienceSection, IntegrationsSection, LocationSection, PricingSection } from "./villa-editor/VillaEditorSections";
 import { VillaPhotoEditor } from "./villa-editor/VillaPhotoEditor";
@@ -214,8 +214,8 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
         {villaId && status !== "published" ? <AdminButton variant="secondary" disabled={dirty || saving} onClick={() => setPendingStatus("published")}>{copy("Publish", "เผยแพร่")}</AdminButton> : null}
       </div>
     </div>
-    {error ? <AdminNotice tone="error" className="mb-4" title={copy("Changes not saved", "ยังไม่ได้บันทึกการเปลี่ยนแปลง")}>{error}</AdminNotice> : null}
-    {phase === "success" ? <AdminNotice tone="success" className="mb-4" title={copy("Villa saved", "บันทึกวิลล่าแล้ว")}><span className="inline-flex items-center gap-1"><CheckCircle2 size={13} /> {copy("Your villa changes are saved.", "บันทึกการเปลี่ยนแปลงของวิลล่าแล้ว")}</span></AdminNotice> : null}
+    {error ? <AdminToast tone="error" title={copy("Changes not saved", "ยังไม่ได้บันทึกการเปลี่ยนแปลง")}>{error}</AdminToast> : null}
+    {phase === "success" ? <AdminToast tone="success" title={copy("Villa saved", "บันทึกวิลล่าแล้ว")}>{copy("Your villa changes are saved.", "บันทึกการเปลี่ยนแปลงของวิลล่าแล้ว")}</AdminToast> : null}
     <div role="tablist" aria-label={copy("Villa editor sections", "ส่วนแก้ไขวิลล่า")} className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-[#dbe0db] bg-[#fbfaf6]/95 p-1 backdrop-blur md:sticky md:top-3 md:z-10 md:flex">
       {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`min-h-11 min-w-0 rounded-lg px-2 text-[11px] font-semibold leading-tight md:px-4 md:text-xs ${activeTab === id ? "bg-[#001e33] text-white" : "text-[#526266] hover:bg-white"}`}>{id === "details" ? copy(label, "รายละเอียด") : id === "location" ? copy(label, "ตำแหน่ง") : id === "pricing" ? copy(label, "ราคา") : id === "photos" ? copy(label, "รูปภาพ") : id === "experience" ? copy(label, "ประสบการณ์ผู้เข้าพัก") : copy(label, "การเชื่อมต่อ")}</button>)}
     </div>
