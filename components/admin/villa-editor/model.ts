@@ -75,7 +75,7 @@ export const blankVilla: VillaDetailsDraft = {
 };
 
 export function normalizeSleepingRooms(rooms: SleepingDraft[], bedrooms: number): SleepingDraft[] {
-  const count = Math.max(1, Math.min(20, Math.round(bedrooms)));
+  const count = Math.max(0, Math.min(20, Math.round(bedrooms)));
   return Array.from({ length: count }, (_, index) => {
     const existing = rooms[index];
     return {

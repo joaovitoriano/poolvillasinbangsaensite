@@ -21,17 +21,17 @@ export function DetailsSection({ draft, setDraft }: { draft: VillaEditorDraft; s
   const updateBedrooms = (bedrooms: number) => setDraft((current) => ({ ...current, villa: { ...current.villa, bedrooms }, sleeping: normalizeSleepingRooms(current.sleeping, bedrooms) }));
   return <div className="min-w-0 space-y-4">
     <section className={`${section} grid gap-4`}><SectionTitle title={copy("Identity", "ข้อมูลระบุตัวตน")} detail={copy("Enter the public name in English or Thai. Its translation and permanent English URL are created when you first save the villa.", "กรอกชื่อสาธารณะเป็นภาษาอังกฤษหรือไทย ระบบจะสร้างคำแปลและ URL ภาษาอังกฤษแบบถาวรเมื่อบันทึกวิลล่าครั้งแรก")} className="" />
-      <AdminField label={copy("Villa name", "ชื่อวิลล่า")} value={translatedInputValue(locale, draft.villa.nameEn, draft.villa.nameTh)} sourceText={draft.villa.nameSource} onChange={(e) => setDraft((current) => ({ ...current, villa: { ...current.villa, ...translatedInputPatch(locale, "nameSource", "nameEn", "nameTh", e.target.value) } }))} required />
+      <AdminField label={copy("Villa name", "ชื่อวิลล่า")} value={translatedInputValue(locale, draft.villa.nameEn, draft.villa.nameTh)} sourceText={draft.villa.nameSource} onChange={(e) => setDraft((current) => ({ ...current, villa: { ...current.villa, ...translatedInputPatch(locale, "nameSource", "nameEn", "nameTh", e.target.value) } }))} />
       <div className="grid gap-4 border-t border-[#eee8de] pt-4"><SectionTitle title={copy("Description", "คำอธิบาย")} detail={copy("Enter the description in English or Thai, then set the standard arrival and departure times.", "กรอกคำอธิบายเป็นภาษาอังกฤษหรือไทย จากนั้นกำหนดเวลาเข้าพักและออกจากที่พักมาตรฐาน")} className="" />
         <AdminTextarea label={copy("Description", "คำอธิบาย")} value={translatedInputValue(locale, draft.villa.descriptionEn, draft.villa.descriptionTh)} sourceText={draft.villa.descriptionSource} onChange={(e) => setDraft((current) => ({ ...current, villa: { ...current.villa, ...translatedInputPatch(locale, "descriptionSource", "descriptionEn", "descriptionTh", e.target.value) } }))} rows={7} />
         <div className="border-t border-[#eee8de] pt-4"><h3 className="text-sm font-semibold text-[#001e33]">{copy("Check-in and check-out", "เช็กอินและเช็กเอาต์")}</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><AdminField label={copy("Check-in time", "เวลาเช็กอิน")} type="time" value={draft.villa.checkInTime} onChange={(e) => update("checkInTime", e.target.value)} /><AdminField label={copy("Check-out time", "เวลาเช็กเอาต์")} type="time" value={draft.villa.checkOutTime} onChange={(e) => update("checkOutTime", e.target.value)} /></div></div>
       </div>
     </section>
     <section className={`${section} grid gap-4 sm:grid-cols-2 lg:grid-cols-4`}><SectionTitle title={copy("Capacity and beds", "จำนวนรองรับและเตียง")} detail={copy("Set the villa capacity, then describe the beds available in each bedroom.", "กำหนดจำนวนผู้เข้าพัก จากนั้นระบุเตียงในแต่ละห้องนอน")} className="sm:col-span-2 lg:col-span-4" />
-      <CapacitySelect label={copy("Bedrooms", "ห้องนอน")} value={draft.villa.bedrooms} min={1} max={20} onChange={updateBedrooms} />
+      <CapacitySelect label={copy("Bedrooms", "ห้องนอน")} value={draft.villa.bedrooms} min={0} max={20} onChange={updateBedrooms} />
       <CapacitySelect label={copy("Bathrooms", "ห้องน้ำ")} value={draft.villa.bathrooms} min={0} max={20} onChange={(v) => update("bathrooms", v)} />
       <CapacitySelect label={copy("Parking spaces", "ที่จอดรถ")} value={draft.villa.parkingSpaces} min={0} max={20} onChange={(v) => update("parkingSpaces", v)} />
-      <CapacitySelect label={copy("Maximum people", "จำนวนผู้เข้าพักสูงสุด")} value={draft.villa.maxGuests} min={1} max={40} onChange={(v) => update("maxGuests", v)} />
+      <CapacitySelect label={copy("Maximum people", "จำนวนผู้เข้าพักสูงสุด")} value={draft.villa.maxGuests} min={0} max={40} onChange={(v) => update("maxGuests", v)} />
       <SleepingEditor className="sm:col-span-2 lg:col-span-4" rooms={draft.sleeping} onChange={(sleeping) => setDraft((current) => ({ ...current, sleeping }))} />
     </section>
   </div>;

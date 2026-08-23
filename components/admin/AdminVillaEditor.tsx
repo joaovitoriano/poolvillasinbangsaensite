@@ -60,7 +60,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const [phase, setPhase] = useState<SavePhase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [validation, setValidation] = useState<Partial<Record<TabId, string[]>>>({});
   const [pendingStatus, setPendingStatus] = useState<LifecycleStatus | null>(null);
   const [conflict, setConflict] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -142,7 +141,7 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   function discard() {
     if (!baseline) return;
     draft.photos.forEach((photo) => { if (photo.file && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url); });
-    setDraftState(baseline); setValidation({}); setError(null); setPhase("idle");
+    setDraftState(baseline); setError(null); setPhase("idle");
     if (villaId) void releaseEditLock({ villaId, sessionId });
   }
 
@@ -182,10 +181,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   async function save() {
     setPhase("validating"); setError(null);
     if (!baseline) { setPhase("error"); return; }
-    const errors = validateDraft(draft, copy);
-    setValidation(errors);
-    const firstInvalid = tabs.find(([id]) => errors[id]?.length)?.[0];
-    if (firstInvalid) { setActiveTab(firstInvalid); setPhase("error"); setError(copy("Fix the highlighted section before saving.", "แก้ไขส่วนที่ไฮไลต์ก่อนบันทึก")); return; }
     const uploadedIds: Id<"_storage">[] = [];
     try {
       setProgress(0);
@@ -252,9 +247,8 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     {error ? <AdminNotice tone="error" className="mb-4" title={copy("Changes not saved", "ยังไม่ได้บันทึกการเปลี่ยนแปลง")}>{error}</AdminNotice> : null}
     {lockedByOther && editLock ? <AdminNotice tone="warning" className="mb-4" title={copy("Villa editing is locked", "วิลล่าถูกล็อกการแก้ไข")}>{copy(`${editLock.editorName} has unsaved changes. You can view this villa, but editing and saving are disabled until their lock is released or expires.`, `${editLock.editorName} มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก คุณดูวิลล่านี้ได้ แต่แก้ไขและบันทึกไม่ได้จนกว่าจะปลดล็อกหรือล็อกหมดอายุ`)}</AdminNotice> : null}
     {phase === "success" ? <AdminNotice tone="success" className="mb-4" title={copy("Villa saved", "บันทึกวิลล่าแล้ว")}><span className="inline-flex items-center gap-1"><CheckCircle2 size={13} /> {copy("Your villa changes are saved.", "บันทึกการเปลี่ยนแปลงของวิลล่าแล้ว")}</span></AdminNotice> : null}
-    {Object.keys(validation).length ? <AdminNotice tone="warning" className="mb-4" title={copy("Review required", "ต้องตรวจสอบ")}>{Object.entries(validation).flatMap(([tab, messages]) => (messages ?? []).map((message) => <button key={`${tab}-${message}`} type="button" className="mr-3 underline" onClick={() => setActiveTab(tab as TabId)}>{message}</button>))}</AdminNotice> : null}
     <div role="tablist" aria-label={copy("Villa editor sections", "ส่วนแก้ไขวิลล่า")} className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-[#dbe0db] bg-[#fbfaf6]/95 p-1 backdrop-blur md:sticky md:top-3 md:z-10 md:flex">
-      {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`min-h-11 min-w-0 rounded-lg px-2 text-[11px] font-semibold leading-tight md:px-4 md:text-xs ${activeTab === id ? "bg-[#001e33] text-white" : "text-[#526266] hover:bg-white"}`}>{id === "details" ? copy(label, "รายละเอียด") : id === "location" ? copy(label, "ตำแหน่ง") : id === "pricing" ? copy(label, "ราคา") : id === "photos" ? copy(label, "รูปภาพ") : id === "experience" ? copy(label, "ประสบการณ์ผู้เข้าพัก") : copy(label, "การเชื่อมต่อ")}{validation[id]?.length ? <span className="ml-1 text-[#efb58e]">!</span> : null}</button>)}
+      {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`min-h-11 min-w-0 rounded-lg px-2 text-[11px] font-semibold leading-tight md:px-4 md:text-xs ${activeTab === id ? "bg-[#001e33] text-white" : "text-[#526266] hover:bg-white"}`}>{id === "details" ? copy(label, "รายละเอียด") : id === "location" ? copy(label, "ตำแหน่ง") : id === "pricing" ? copy(label, "ราคา") : id === "photos" ? copy(label, "รูปภาพ") : id === "experience" ? copy(label, "ประสบการณ์ผู้เข้าพัก") : copy(label, "การเชื่อมต่อ")}</button>)}
     </div>
     <fieldset disabled={lockedByOther} className="min-w-0 disabled:opacity-75">
       <div role="tabpanel" className="min-w-0">
@@ -282,21 +276,4 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     <ConfirmDialog open={pendingStatus !== null} onClose={() => setPendingStatus(null)} onConfirm={() => void confirmLifecycle()} title={pendingStatus === "published" ? copy("Publish this villa?", "เผยแพร่วิลล่านี้หรือไม่") : pendingStatus === "draft" ? copy("Return this villa to draft?", "นำวิลล่านี้กลับเป็นฉบับร่างหรือไม่") : copy("Archive this villa?", "เก็บวิลล่านี้ถาวรหรือไม่")} description={copy("This publication change is separate from villa content saving and will be recorded in the audit log.", "การเปลี่ยนสถานะการเผยแพร่นี้แยกจากการบันทึกเนื้อหาวิลล่าและจะถูกบันทึกในประวัติการใช้งาน")} confirmLabel={pendingStatus === "published" ? copy("Publish villa", "เผยแพร่วิลล่า") : pendingStatus === "draft" ? copy("Return to draft", "กลับเป็นฉบับร่าง") : copy("Archive villa", "เก็บวิลล่าถาวร")} tone={pendingStatus === "archived" ? "destructive" : "primary"} busy={statusBusy} />
     <ConfirmDialog open={conflict} onClose={() => setConflict(false)} onConfirm={() => { if (detail) applyDetail(detail); }} title={copy("A newer villa version is available", "มีข้อมูลวิลล่าเวอร์ชันใหม่กว่า")} description={copy("Another administrator saved this villa after you opened it. Load the latest version before editing again. Your current unsaved changes will be replaced.", "ผู้ดูแลคนอื่นบันทึกวิลล่านี้หลังจากคุณเปิดหน้า โปรดโหลดเวอร์ชันล่าสุดก่อนแก้ไขอีกครั้ง การเปลี่ยนแปลงที่ยังไม่บันทึกของคุณจะถูกแทนที่")} confirmLabel={copy("Load latest", "โหลดเวอร์ชันล่าสุด")} tone="primary" />
   </div>;
-}
-
-function validateDraft(draft: VillaEditorDraft, copy: (english: string, thai: string) => string): Partial<Record<TabId, string[]>> {
-  const errors: Partial<Record<TabId, string[]>> = {};
-  const add = (tab: TabId, message: string) => { errors[tab] = [...(errors[tab] ?? []), message]; };
-  if (!draft.villa.nameSource.trim()) add("details", copy("Add a villa name", "เพิ่มชื่อวิลล่า"));
-  if (draft.villa.bedrooms < 1 || draft.villa.maxGuests < 1) add("details", copy("Bedrooms and maximum people must be positive", "จำนวนห้องนอนและจำนวนผู้เข้าพักสูงสุดต้องมากกว่าศูนย์"));
-  if ([draft.villa.bathrooms, draft.villa.parkingSpaces].some((value) => value < 0)) add("details", copy("Capacity values cannot be negative", "จำนวนรองรับต้องไม่ติดลบ"));
-  if (!draft.villa.formattedAddress.trim()) add("location", copy("Select the villa location", "เลือกตำแหน่งวิลล่า"));
-  if (draft.villa.latitude < -90 || draft.villa.latitude > 90 || draft.villa.longitude < -180 || draft.villa.longitude > 180) add("location", copy("Select a valid Google map location", "เลือกตำแหน่ง Google Maps ที่ถูกต้อง"));
-  if ([draft.villa.weekdayPriceThb, draft.villa.weekendPriceThb, draft.villa.securityDepositThb].some((value) => value < 0)) add("pricing", copy("Prices and deposit cannot be negative", "ราคาและเงินประกันต้องไม่ติดลบ"));
-  if (draft.rates.some((rate) => !rate.labelSource.trim() || !rate.startDate || !rate.endDate || rate.endDate <= rate.startDate || rate.nightlyPriceThb <= 0)) add("pricing", copy("Correct incomplete special rates", "แก้ไขราคาพิเศษที่ข้อมูลไม่ครบ"));
-  if (draft.photos.some((photo) => !photo.file && !photo.storageId && !photo.externalUrl)) add("photos", copy("Every photo needs a file or URL", "รูปภาพทุกภาพต้องมีไฟล์หรือ URL"));
-  if (draft.customAmenities.some((item) => !item.labelSource || !item.icon)) add("experience", copy("Complete custom amenities", "กรอกสิ่งอำนวยความสะดวกที่กำหนดเองให้ครบ"));
-  if (draft.rules.some((rule) => !rule.textSource.trim() || !rule.icon)) add("experience", copy("Complete every house rule", "กรอกกฎของที่พักทุกข้อให้ครบ"));
-  if (draft.sleeping.length !== draft.villa.bedrooms || draft.sleeping.some((room, index) => room.bedroomNumber !== index + 1 || room.beds.length < 1)) add("experience", copy("Complete sleeping arrangements", "กรอกการจัดที่นอนให้ครบ"));
-  return errors;
 }

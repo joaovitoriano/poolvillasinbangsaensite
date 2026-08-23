@@ -1,11 +1,10 @@
-import { type Infer, v } from "convex/values";
+import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { amenitySlug } from "./lib/amenities";
 import { writeAudit } from "./lib/audit";
-import { assertDatePeriod } from "./lib/dates";
 import { bedTypeValidator, villaStatusValidator } from "./lib/validators";
 
 const nullableString = v.union(v.string(), v.null());
@@ -72,50 +71,8 @@ export const villaEditorSnapshotValidator = v.object({
   sleeping: v.array(savedSleepingValidator),
 });
 
-type EditorPayload = Infer<typeof villaEditorPayloadValidator>;
-
 function optionalString(value: string | null) {
   return value?.trim() || undefined;
-}
-
-function assertBilingual(source: string, english: string, thai: string, label: string) {
-  const normalizedSource = source.trim();
-  if (!normalizedSource || !english.trim() || !thai.trim())
-    throw new Error(`${label} requires English and Thai / ${label}ต้องมีทั้งภาษาอังกฤษและภาษาไทย`);
-  if (normalizedSource !== english.trim() && normalizedSource !== thai.trim())
-    throw new Error(`${label} does not match its translations / ${label}ไม่ตรงกับคำแปล`);
-}
-
-function validate(payload: EditorPayload) {
-  const villa = payload.villa;
-  assertBilingual(villa.nameSource, villa.nameEn, villa.nameTh, "Villa name");
-  assertBilingual(villa.descriptionSource, villa.descriptionEn, villa.descriptionTh, "Description");
-  if (!villa.slug.trim() || !villa.formattedAddress.trim()) throw new Error("Villa slug and address are required / ต้องระบุ Slug และที่อยู่วิลล่า");
-  if (!Number.isFinite(villa.latitude) || villa.latitude < -90 || villa.latitude > 90 ||
-      !Number.isFinite(villa.longitude) || villa.longitude < -180 || villa.longitude > 180)
-    throw new Error("Select a valid map location / เลือกตำแหน่งแผนที่ที่ถูกต้อง");
-  for (const value of [villa.weekdayPriceThb, villa.weekendPriceThb ?? 0, villa.securityDepositThb ?? 0])
-    if (!Number.isFinite(value) || value < 0) throw new Error("Prices cannot be negative / ราคาต้องไม่ติดลบ");
-  for (const value of [villa.bedrooms, villa.bathrooms, villa.maxGuests, villa.parkingSpaces, villa.sortOrder])
-    if (!Number.isInteger(value) || value < 0) throw new Error("Capacity values must be nonnegative whole numbers / จำนวนรองรับต้องเป็นจำนวนเต็มที่ไม่ติดลบ");
-  if (villa.bedrooms < 1 || villa.maxGuests < 1) throw new Error("Bedrooms and maximum guests must be positive / ห้องนอนและจำนวนผู้เข้าพักสูงสุดต้องมากกว่าศูนย์");
-  payload.rates.forEach((rate) => {
-    assertBilingual(rate.labelSource, rate.labelEn, rate.labelTh, "Rate name");
-    assertDatePeriod(rate.startDate, rate.endDate);
-    if (rate.nightlyPriceThb <= 0) throw new Error("Nightly price must be positive / ราคาต่อคืนต้องมากกว่าศูนย์");
-  });
-  payload.photos.forEach((photo) => {
-    const stored = photo.storageId !== null;
-    const external = Boolean(photo.externalUrl?.trim());
-    if (stored === external) throw new Error("Each photo needs one file or URL / รูปภาพแต่ละรูปต้องมีไฟล์หรือ URL อย่างใดอย่างหนึ่ง");
-    if (photo.thumbnailStorageId && !photo.storageId) throw new Error("A thumbnail requires a stored photo / รูปย่อต้องใช้รูปภาพที่จัดเก็บไว้");
-  });
-  payload.customAmenities.forEach((item) => assertBilingual(item.labelSource, item.labelEn, item.labelTh, "Amenity"));
-  payload.rules.forEach((rule) => assertBilingual(rule.textSource, rule.textEn, rule.textTh, "House rule"));
-  if (payload.sleeping.length !== villa.bedrooms) throw new Error("Add one sleeping arrangement for every bedroom / เพิ่มการจัดที่นอนสำหรับทุกห้องนอน");
-  const bedroomNumbers = payload.sleeping.map((room) => room.bedroomNumber).sort((a, b) => a - b);
-  if (bedroomNumbers.some((number, index) => number !== index + 1) || payload.sleeping.some((room) => room.beds.length === 0))
-    throw new Error("Bedroom numbers and beds are incomplete / หมายเลขห้องนอนและเตียงไม่ครบ");
 }
 
 async function assertEditSession(ctx: MutationCtx, villaId: Id<"villas">, workosUserId: string, sessionId: string | undefined) {
@@ -189,7 +146,6 @@ export const saveVillaEditor = mutation({
   returns: v.object({ villaId: v.id("villas"), updatedAt: v.number() }),
   handler: async (ctx, args) => {
     const actor = await requireAdmin(ctx);
-    validate(args);
     const now = Date.now();
     let villaId = args.villaId;
     let lockId: Id<"villaEditSessions"> | null = null;
