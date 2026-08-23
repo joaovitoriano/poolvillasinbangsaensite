@@ -101,6 +101,7 @@ export default async function VillaPage({ params, searchParams }: Props) {
         address: "ที่อยู่",
         related: "วิลล่าที่คุณอาจชอบ",
         view: "ดูวิลล่า",
+        footer: "© 2026 Pool Villas in Bangsaen · Bang Saen, Chonburi",
       }
     : {
         all: "All villas",
@@ -122,6 +123,7 @@ export default async function VillaPage({ params, searchParams }: Props) {
         address: "Address",
         related: "You may also like",
         view: "View villa",
+        footer: "© 2026 Pool Villas in Bangsaen · Bang Saen, Chonburi",
       };
   return (
     <main className="min-h-screen overflow-x-clip bg-[var(--paper)]">
@@ -291,7 +293,7 @@ export default async function VillaPage({ params, searchParams }: Props) {
           </article>
         </div>
       </section>
-      {villa.formattedAddress && googleMapsHref ? <section className="border-y border-[var(--line)] bg-[#e8efed] px-5 py-12 sm:px-8 sm:py-14 lg:px-12">
+      {villa.formattedAddress && googleMapsHref ? <section className="border-b border-[var(--line)] bg-[#e8efed] px-5 py-12 sm:px-8 sm:py-14 lg:px-12">
         <article className="mx-auto max-w-[1120px]">
           <h2 className="font-serif text-3xl font-semibold sm:text-4xl">{t.location}</h2>
           <a href={googleMapsHref} target="_blank" rel="noreferrer" aria-label={`${t.address}: ${villa.formattedAddress}`} className="mt-2 inline-flex max-w-3xl items-start gap-2 text-sm font-semibold leading-6 text-[var(--navy)] transition hover:text-[var(--terracotta)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)]"><MapPin size={17} className="mt-1 shrink-0" aria-hidden="true" /><span>{villa.formattedAddress}</span><ExternalLink size={14} className="mt-1.5 shrink-0" aria-hidden="true" /></a>
@@ -301,7 +303,7 @@ export default async function VillaPage({ params, searchParams }: Props) {
         </article>
       </section> : null}
           {villa.related.length ? (
-            <section className="px-5 pb-12 sm:px-8 lg:px-12">
+            <section className="px-5 py-10 sm:px-8 sm:py-12 lg:px-12">
               <div className="mx-auto max-w-[1120px]">
               <h2 className="font-serif text-3xl font-semibold">{t.related}</h2>
               <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -343,6 +345,20 @@ export default async function VillaPage({ params, searchParams }: Props) {
               </div>
             </section>
           ) : null}
+      <footer className="border-t border-white/12 bg-[var(--navy-deep)] px-5 pb-20 pt-8 text-white sm:px-8 sm:py-8 lg:px-12">
+        <div className="mx-auto flex max-w-[1120px] flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
+          <Image
+            src="/brand-logo-white.png"
+            alt={th ? "พูลวิลล่าในบางแสน" : "Pool Villas in Bangsaen"}
+            width={220}
+            height={44}
+            className="h-auto w-[170px] shrink-0 sm:w-[190px]"
+          />
+          <p className="max-w-xl px-4 text-[11px] leading-5 text-white/55 sm:px-0 sm:text-xs">
+            {t.footer}
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
