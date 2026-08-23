@@ -18,7 +18,6 @@ import {
   Users,
 } from "lucide-react";
 
-import { AmenityIcon } from "@/lib/amenities";
 import { formatNumericDateRange } from "@/lib/date-format";
 import { shouldBypassImageOptimization } from "@/lib/remote-image";
 
@@ -575,15 +574,6 @@ export function HomepageExperience({
                           <span className="flex items-center gap-1"><Bath size={13} />{villa.bathrooms}</span>
                           <span className="flex items-center gap-1"><Users size={13} />{villa.maxGuests} {t.sleeps}</span>
                         </div>
-                        {villa.amenities.length > 0 ? (
-                          <div className="mt-3 flex items-center gap-3 border-t border-[var(--line)] pt-3">
-                            {villa.amenities.slice(0, 4).map((amenity) => (
-                              <span key={amenity._id} title={locale === "th" ? amenity.labelTh : amenity.labelEn} className="flex items-center justify-center text-[var(--navy)]">
-                                <AmenityIcon slug={amenity.slug} icon={amenity.icon} size={17} />
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
                         <div className="mt-4 flex items-end justify-between gap-3">
                           <p className="text-[10px] text-[var(--soft)]">{t.from}<br /><strong className="font-price text-lg text-[var(--ink)]">฿{villa.weekdayPriceThb.toLocaleString()}</strong> / {t.night}</p>
                           <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--navy)] group-hover:text-[var(--terracotta)]">{t.view}<ArrowRight size={13} /></span>
