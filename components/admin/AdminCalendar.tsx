@@ -110,7 +110,7 @@ export function AdminCalendar() {
       </div>
 
       <div className="md:hidden">
-        {villas === undefined ? <AdminSkeleton rows={4} /> : portfolio.length === 0 ? <AdminEmptyState title={copy("No villas available", "ยังไม่มีวิลล่า")} detail={copy("Published and draft villas will appear here.", "วิลล่าที่เผยแพร่และฉบับร่างจะแสดงที่นี่")} /> : <MobilePortfolioCarousel portfolio={portfolio} days={desktopDays} activePage={mobilePage} locale={locale} copy={copy} today={today} scrollRef={carouselRef} onScroll={trackCarousel} />}
+        {villas === undefined ? <AdminSkeleton rows={4} /> : portfolio.length === 0 ? <AdminEmptyState title={copy("No villas available", "ยังไม่มีวิลล่า")} detail={copy("Published and draft villas will appear here.", "วิลล่าที่เผยแพร่และฉบับร่างจะแสดงที่นี่")} /> : <MobilePortfolioCarousel portfolio={portfolio} days={desktopDays} locale={locale} copy={copy} today={today} scrollRef={carouselRef} onScroll={trackCarousel} />}
       </div>
     </AdminPanel>
 
@@ -210,61 +210,51 @@ function AdminMonthScroller({ currentMonth, locale, onMonthChange }: { currentMo
   </div>;
 }
 
-function MobilePortfolioCarousel({ portfolio, days, activePage, locale, copy, today, scrollRef, onScroll }: { portfolio: Portfolio; days: Date[]; activePage: number; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string; scrollRef: RefObject<HTMLDivElement | null>; onScroll: () => void }) {
+function MobilePortfolioCarousel({ portfolio, days, locale, copy, today, scrollRef, onScroll }: { portfolio: Portfolio; days: Date[]; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string; scrollRef: RefObject<HTMLDivElement | null>; onScroll: () => void }) {
   const pages = carouselPageStarts(days.length).map((start) => days.slice(start, start + 7));
-  const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const [rowHeights, setRowHeights] = useState<number[]>([]);
-
-  useLayoutEffect(() => {
-    const page = pageRefs.current[activePage];
-    if (!page) return;
-    const rows = Array.from(page.querySelectorAll<HTMLElement>("[data-villa-row]"));
-    const measure = () => {
-      const next = rows.map((row) => row.getBoundingClientRect().height);
-      setRowHeights((current) => current.length === next.length && current.every((height, index) => Math.abs(height - next[index]) < 0.5) ? current : next);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    rows.forEach((row) => observer.observe(row));
-    return () => observer.disconnect();
-  }, [activePage, portfolio]);
-
-  return <div role="table" aria-label={copy("Villa availability", "วันว่างของวิลล่า")} className="relative flex w-full overflow-hidden">
-    <div className="w-28 shrink-0 border-r border-[#ddd6ca] bg-white">
-      <div role="columnheader" className="flex h-10 items-center bg-[#f8f6f1] px-3 font-mono text-[9px] uppercase tracking-wider text-[#68777a]">{copy("Villa", "วิลล่า")}</div>
-      {portfolio.map((item, itemIndex) => <div role="rowheader" key={item.villa._id} className="flex min-w-0 items-center bg-white px-3 py-1.5" style={rowHeights[itemIndex] ? { height: rowHeights[itemIndex] } : undefined}><span className="block min-w-0 truncate whitespace-nowrap text-[11px] font-semibold text-[#001e33]" title={locale === "th" ? item.villa.nameTh : item.villa.nameEn}>{locale === "th" ? item.villa.nameTh : item.villa.nameEn}</span></div>)}
-    </div>
-    <div ref={scrollRef} onScroll={onScroll} className="min-w-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex">
-        {pages.map((pageDays, pageIndex) => <div ref={(node) => { pageRefs.current[pageIndex] = node; }} key={pageIndex} className="min-w-full snap-start snap-always">
-          <div role="row" className="grid h-10 grid-cols-7 bg-[#f8f6f1]">
-            {pageDays.map((day) => <MobileDayHeader key={iso(day)} day={day} locale={locale} today={today} />)}
-          </div>
-          {portfolio.map((item) => { const segments = eventSegments(item.blocks, pageDays); const laneCount = Math.max(1, ...segments.map(({ lane }) => lane + 1)); return <div role="row" data-villa-row key={item.villa._id} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${laneCount}, auto)` }}>
-            {pageDays.map((day, dayIndex) => <AvailabilityCell key={iso(day)} item={item} date={iso(day)} today={today} copy={copy} gridColumn={dayIndex + 1} rowSpan={laneCount} />)}
-            <span aria-hidden="true" className="pointer-events-none invisible col-span-7 row-start-1 mx-0.5 my-1 px-2 py-1 text-[11px] font-semibold leading-[14px]">{"\u00a0"}</span>
-            {segments.map(({ block, startIndex, endIndex, lane }) => <CalendarEventBox key={block._id} block={block} lane={lane} locale={locale} copy={copy} gridStart={startIndex + 1} gridEnd={endIndex + 1} layout="mobile" />)}
-          </div>; })}
-        </div>)}
-      </div>
-    </div>
-    {rowHeights.length === portfolio.length ? portfolio.slice(0, -1).map((item, index) => <span key={item.villa._id} aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-[5] border-t border-[#d8ded9]" style={{ top: 40 + rowHeights.slice(0, index + 1).reduce((total, height) => total + height, 0) }} />) : null}
+  return <div ref={scrollRef} role="table" aria-label={copy("Villa availability", "วันว่างของวิลล่า")} onScroll={onScroll} className="flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    {pages.map((pageDays, pageIndex) => <MobilePortfolioPage key={pageIndex} portfolio={portfolio} days={pageDays} locale={locale} copy={copy} today={today} />)}
   </div>;
 }
 
-function MobileDayHeader({ day, locale, today }: { day: Date; locale: "en" | "th"; today: string }) {
+function MobilePortfolioPage({ portfolio, days, locale, copy, today }: { portfolio: Portfolio; days: Date[]; locale: "en" | "th"; copy: (english: string, thai: string) => string; today: string }) {
+  let nextGridRow = 2;
+  const rows = portfolio.map((item) => {
+    const segments = eventSegments(item.blocks, days);
+    const laneCount = Math.max(1, ...segments.map(({ lane }) => lane + 1));
+    const gridRowStart = nextGridRow;
+    nextGridRow += laneCount;
+    return { item, segments, laneCount, gridRowStart };
+  });
+
+  return <div className="grid w-full min-w-0 flex-none snap-start snap-always bg-white" style={{ gridTemplateColumns: "112px repeat(7, minmax(0, 1fr))" }}>
+    <div role="row" className="contents">
+      <div role="columnheader" className="flex h-10 min-w-0 items-center border-b border-r border-[#ddd6ca] bg-[#f8f6f1] px-3 font-mono text-[9px] uppercase tracking-wider text-[#68777a]" style={{ gridColumn: 1, gridRow: 1 }}>{copy("Villa", "วิลล่า")}</div>
+      {days.map((day, dayIndex) => <MobileDayHeader key={iso(day)} day={day} locale={locale} today={today} gridColumn={dayIndex + 2} />)}
+    </div>
+    {rows.map(({ item, segments, laneCount, gridRowStart }, itemIndex) => <div role="row" className="contents" key={item.villa._id}>
+      <div role="rowheader" className="z-[2] flex min-w-0 items-center border-r border-[#ddd6ca] bg-white px-3 py-1.5" style={{ gridColumn: 1, gridRow: `${gridRowStart} / span ${laneCount}` }}><span className="block min-w-0 truncate whitespace-nowrap text-[11px] font-semibold text-[#001e33]" title={locale === "th" ? item.villa.nameTh : item.villa.nameEn}>{locale === "th" ? item.villa.nameTh : item.villa.nameEn}</span></div>
+      {days.map((day, dayIndex) => <AvailabilityCell key={iso(day)} item={item} date={iso(day)} today={today} copy={copy} gridColumn={dayIndex + 2} rowSpan={laneCount} gridRowStart={gridRowStart} />)}
+      <span aria-hidden="true" className="pointer-events-none invisible mx-0.5 my-1 px-2 py-1 text-[11px] font-semibold leading-[14px]" style={{ gridColumn: "2 / -1", gridRow: gridRowStart }}>{"\u00a0"}</span>
+      {segments.map(({ block, startIndex, endIndex, lane }) => <CalendarEventBox key={block._id} block={block} lane={lane} locale={locale} copy={copy} gridStart={startIndex + 2} gridEnd={endIndex + 2} gridRowStart={gridRowStart} layout="mobile" />)}
+      {itemIndex > 0 ? <span aria-hidden="true" className="pointer-events-none z-[5] self-start border-t border-[#d8ded9]" style={{ gridColumn: "1 / -1", gridRow: gridRowStart }} /> : null}
+    </div>)}
+  </div>;
+}
+
+function MobileDayHeader({ day, locale, today, gridColumn }: { day: Date; locale: "en" | "th"; today: string; gridColumn: number }) {
   const date = iso(day);
   const weekend = [0, 6].includes(day.getUTCDay());
-  return <div role="columnheader" className={`flex min-w-0 flex-col items-center justify-center border-r border-[#ece7df] text-center ${weekend ? "bg-[#f0ece4]" : ""} ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`}><span className="block text-[8px] uppercase text-[#7b8586]">{day.toLocaleDateString(locale === "th" ? "th-TH" : "en", { weekday: "narrow", timeZone: "UTC" })}</span><strong className="block text-[10px] text-[#163038]">{day.getUTCDate()}</strong></div>;
+  return <div role="columnheader" style={{ gridColumn, gridRow: 1 }} className={`flex h-10 min-w-0 flex-col items-center justify-center border-b border-r border-[#ece7df] text-center ${weekend ? "bg-[#f0ece4]" : "bg-[#f8f6f1]"} ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`}><span className="block text-[8px] uppercase text-[#7b8586]">{day.toLocaleDateString(locale === "th" ? "th-TH" : "en", { weekday: "narrow", timeZone: "UTC" })}</span><strong className="block text-[10px] text-[#163038]">{day.getUTCDate()}</strong></div>;
 }
 
-function AvailabilityCell({ item, date, today, copy, gridColumn, rowSpan }: { item: PortfolioItem; date: string; today: string; copy: (english: string, thai: string) => string; gridColumn: number; rowSpan: number }) {
+function AvailabilityCell({ item, date, today, copy, gridColumn, rowSpan, gridRowStart = 1 }: { item: PortfolioItem; date: string; today: string; copy: (english: string, thai: string) => string; gridColumn: number; rowSpan: number; gridRowStart?: number }) {
   const blocks = item.blocks.filter((candidate) => candidate.startDate <= date && eventVisualEndExclusive(candidate) > date);
   const title = blocks.length ? blocks.map((block) => block.kind === "closed" ? copy(`Closed · ${block.name}`, `ปิด · ${block.name}`) : copy(`Booked · ${block.name}`, `จองแล้ว · ${block.name}`)).join("; ") : copy("Available", "ว่าง");
-  return <div role="cell" aria-label={`${date}: ${title}`} style={{ gridColumn, gridRow: `1 / span ${rowSpan}` }} className={`h-full border-r border-[#ece7df] bg-white ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`} />;
+  return <div role="cell" aria-label={`${date}: ${title}`} style={{ gridColumn, gridRow: `${gridRowStart} / span ${rowSpan}` }} className={`h-full min-w-0 border-r border-[#ece7df] bg-white ${date === today ? "ring-2 ring-inset ring-[#0f6474]" : ""}`} />;
 }
 
-function CalendarEventBox({ block, lane, locale, copy, gridStart, gridEnd, layout }: { block: AvailabilityBlock; lane: number; locale: "en" | "th"; copy: (english: string, thai: string) => string; gridStart: number; gridEnd: number; layout: "desktop" | "mobile" }) {
+function CalendarEventBox({ block, lane, locale, copy, gridStart, gridEnd, gridRowStart = 1, layout }: { block: AvailabilityBlock; lane: number; locale: "en" | "th"; copy: (english: string, thai: string) => string; gridStart: number; gridEnd: number; gridRowStart?: number; layout: "desktop" | "mobile" }) {
   const [open, setOpen] = useState(false);
   const [centered, setCentered] = useState(false);
   const [compactViewport, setCompactViewport] = useState(false);
@@ -312,7 +302,7 @@ function CalendarEventBox({ block, lane, locale, copy, gridStart, gridEnd, layou
         aria-expanded={effectiveOpen}
         style={{
           gridColumn: `${gridStart} / ${gridEnd}`,
-          gridRow: lane + 1,
+          gridRow: gridRowStart + lane,
         }}
         onPointerDown={(event) => { pointerType.current = event.pointerType; }}
         onPointerEnter={(event) => { pointerType.current = event.pointerType; if (event.pointerType === "mouse") setOpen(true); }}
