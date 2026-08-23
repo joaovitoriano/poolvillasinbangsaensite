@@ -4,12 +4,10 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
-  CircleHelp,
   Info,
   LoaderCircle,
   X,
 } from "lucide-react";
-import * as Popover from "@radix-ui/react-popover";
 import {
   createContext,
   forwardRef,
@@ -91,33 +89,20 @@ type FieldShellProps = {
   helper?: string;
   error?: string;
   optional?: boolean;
-  sourceText?: string;
-  currentValue?: unknown;
   children: (ids: { id: string; describedBy?: string }) => ReactNode;
   className?: string;
 };
 
-function SourceTextPopover({ text }: { text: string }) {
-  const { copy } = useAdminLocale();
-  const [open, setOpen] = useState(false);
-  const closeTimer = useRef<number | null>(null);
-  const cancelClose = () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); closeTimer.current = null; };
-  const scheduleClose = () => { cancelClose(); closeTimer.current = window.setTimeout(() => setOpen(false), 120); };
-  useEffect(() => () => cancelClose(), []);
-  return <Popover.Root open={open} onOpenChange={setOpen}><Popover.Trigger asChild><button type="button" onPointerEnter={(event) => { if (event.pointerType === "mouse") { cancelClose(); setOpen(true); } }} onPointerLeave={(event) => { if (event.pointerType === "mouse") scheduleClose(); }} className="inline-flex shrink-0 items-center gap-1 rounded-sm text-[11px] font-medium text-[#0f6474] hover:text-[#001e33] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c66f4e]" aria-label={copy("View source text", "ดูข้อความต้นฉบับ")}>{copy("Source text", "ข้อความต้นฉบับ")}<CircleHelp size={12} strokeWidth={1.8} aria-hidden="true" /></button></Popover.Trigger><Popover.Portal><Popover.Content sideOffset={6} collisionPadding={12} avoidCollisions sticky="always" onPointerEnter={(event) => { if (event.pointerType === "mouse") cancelClose(); }} onPointerLeave={(event) => { if (event.pointerType === "mouse") scheduleClose(); }} className="z-[90] max-h-[min(18rem,calc(100dvh-2rem))] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-lg border border-[#d5d8d4] bg-white p-3 text-xs leading-5 text-[#163038] shadow-[0_12px_30px_rgba(0,30,51,.16)] outline-none"><p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#68777a]">{copy("Original source", "ต้นฉบับเดิม")}</p><p className="whitespace-pre-wrap break-words">{text || copy("No source text yet.", "ยังไม่มีข้อความต้นฉบับ")}</p><Popover.Arrow className="fill-white" /></Popover.Content></Popover.Portal></Popover.Root>;
-}
-
-function FieldShell({ id, label, helper, error, optional, sourceText, currentValue, children, className }: FieldShellProps) {
+function FieldShell({ id, label, helper, error, optional, children, className }: FieldShellProps) {
   const { copy } = useAdminLocale();
   const generated = useId();
   const inputId = id ?? generated;
   const helperId = helper ? `${inputId}-help` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
   const describedBy = [helperId, errorId].filter(Boolean).join(" ") || undefined;
-  const showSourceText = sourceText !== undefined && String(currentValue ?? "").trim() !== sourceText.trim();
   return (
     <div className={cx("min-w-0", className)}>
-      <div className="flex items-baseline justify-between gap-3 text-xs font-semibold text-[#405256]"><label htmlFor={inputId}>{label}</label><span className="flex items-center gap-2">{showSourceText ? <SourceTextPopover text={sourceText} /> : null}{optional ? <span className="font-normal text-[#7d888a]">{copy("Optional", "ไม่บังคับ")}</span> : null}</span></div>
+      <div className="flex items-baseline justify-between gap-3 text-xs font-semibold text-[#405256]"><label htmlFor={inputId}>{label}</label>{optional ? <span className="font-normal text-[#7d888a]">{copy("Optional", "ไม่บังคับ")}</span> : null}</div>
       {children({ id: inputId, describedBy })}
       {helper ? <p id={helperId} className="mt-1.5 text-[11px] leading-5 text-[#68777a]">{helper}</p> : null}
       {error ? <p id={errorId} role="alert" className="mt-1.5 text-[11px] font-semibold leading-5 text-[#9a3f32]">{error}</p> : null}
@@ -131,9 +116,9 @@ const controlClass =
 export const AdminField = forwardRef<
   HTMLInputElement,
   Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & Omit<FieldShellProps, "children" | "id">
->(function AdminField({ label, helper, error, optional, sourceText, className, ...props }, ref) {
+>(function AdminField({ label, helper, error, optional, className, ...props }, ref) {
   return (
-    <FieldShell label={label} helper={helper} error={error} optional={optional} sourceText={sourceText} currentValue={props.value ?? props.defaultValue} className={className}>
+    <FieldShell label={label} helper={helper} error={error} optional={optional} className={className}>
       {({ id, describedBy }) => (
         <input ref={ref} id={id} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={controlClass} {...props} />
       )}
@@ -144,9 +129,9 @@ export const AdminField = forwardRef<
 export const AdminTextarea = forwardRef<
   HTMLTextAreaElement,
   Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id"> & Omit<FieldShellProps, "children" | "id">
->(function AdminTextarea({ label, helper, error, optional, sourceText, className, rows = 4, ...props }, ref) {
+>(function AdminTextarea({ label, helper, error, optional, className, rows = 4, ...props }, ref) {
   return (
-    <FieldShell label={label} helper={helper} error={error} optional={optional} sourceText={sourceText} currentValue={props.value ?? props.defaultValue} className={className}>
+    <FieldShell label={label} helper={helper} error={error} optional={optional} className={className}>
       {({ id, describedBy }) => (
         <textarea ref={ref} id={id} rows={rows} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={cx(controlClass, "min-h-28 resize-y py-3 leading-6")} {...props} />
       )}
@@ -157,9 +142,9 @@ export const AdminTextarea = forwardRef<
 export const AdminSelect = forwardRef<
   HTMLSelectElement,
   Omit<SelectHTMLAttributes<HTMLSelectElement>, "id"> & Omit<FieldShellProps, "children" | "id">
->(function AdminSelect({ label, helper, error, optional, sourceText, className, children, ...props }, ref) {
+>(function AdminSelect({ label, helper, error, optional, className, children, ...props }, ref) {
   return (
-    <FieldShell label={label} helper={helper} error={error} optional={optional} sourceText={sourceText} currentValue={props.value ?? props.defaultValue} className={className}>
+    <FieldShell label={label} helper={helper} error={error} optional={optional} className={className}>
       {({ id, describedBy }) => (
         <select ref={ref} id={id} aria-invalid={Boolean(error) || undefined} aria-describedby={describedBy} className={controlClass} {...props}>{children}</select>
       )}

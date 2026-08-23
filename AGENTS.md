@@ -23,10 +23,7 @@ VillaManager is the user's defunct villa-management app and may be consulted for
 This application and website are bilingual. Every piece of user-facing natural-language content must have both an English and a Thai version.
 
 - **Content written in code:** Whenever adding or changing user-facing copy in the codebase, manually write both the English and Thai translations. Never use automatic translation for coded copy, and never ship coded copy in only one language. This includes headings, labels, buttons, descriptions, helper text, validation messages, errors, empty states, notifications, metadata, and accessibility text.
-- **Content entered through admin inputs:** Admin-entered natural-language content uses a single input, not separate English and Thai inputs. On save, use Chrome's browser-provided `LanguageDetector` and `Translator` APIs (powered internally by TranslateKit) to detect whether the changed content is English or Thai and generate the opposite translation before saving both versions to Convex.
-- Only translate changed natural-language fields. Do not translate structured values such as prices, numbers, dates, IDs, URLs, phone numbers, email addresses, coordinates, or other non-language data.
-- If browser translation is unavailable or fails, do not silently save incomplete bilingual content. Show a clear bilingual error and keep the user's input so they can retry.
-- TranslateKit is browser-side only. Do not replace it with Google Cloud Translation, a server-side translation API, an LLM API, or any paid translation service unless the user explicitly requests that change.
+- **Content entered through admin inputs:** Admin-entered natural-language content uses a single input for the selected admin language. Save that language's field directly and leave the other language unchanged. Never automatically translate admin input or block a save because the other language is empty.
 
 <!-- convex-ai-start -->
 

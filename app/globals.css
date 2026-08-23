@@ -7,6 +7,8 @@ html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body),sans-serif; }
 a { text-underline-offset:4px; }
 button,a,input,select { -webkit-tap-highlight-color:transparent; }
+form,fieldset,label { min-width:0; }
+fieldset { min-inline-size:0; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
 textarea {
   width:100%;
@@ -90,5 +92,12 @@ select {
   .admin-google-place-autocomplete::part(input) {
     font-size:16px !important;
     touch-action:manipulation;
+  }
+  select {
+    display:block;
+    width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
 }

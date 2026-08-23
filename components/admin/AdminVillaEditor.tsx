@@ -10,16 +10,17 @@ import { compressVillaImage, createVillaThumbnail } from "@/lib/villa-image-proc
 import { useAdminLocale } from "./AdminLocale";
 import { useAdminNavigationGuard } from "./AdminRouteShell";
 import { AdminButton, AdminNotice, AdminSkeleton, AdminStatusBadge, ConfirmDialog } from "./AdminUI";
+import { localizedInputValue } from "./localized-input";
 import { DetailsSection, GuestExperienceSection, IntegrationsSection, LocationSection, PricingSection } from "./villa-editor/VillaEditorSections";
 import { VillaPhotoEditor } from "./villa-editor/VillaPhotoEditor";
-import { createBlankDraft, detailToDraft, draftFingerprint, translateChangedDraft, villaSlugFromEnglish, type PhotoDraft, type VillaEditorDraft, type VillaEditorDetail } from "./villa-editor/model";
+import { createBlankDraft, detailToDraft, draftFingerprint, villaSlugFromEnglish, type PhotoDraft, type VillaEditorDraft, type VillaEditorDetail } from "./villa-editor/model";
 
 const tabs = [
   ["details", "Details"], ["location", "Location"], ["pricing", "Pricing"],
   ["photos", "Photos"], ["experience", "Guest experience"], ["integrations", "Integrations"],
 ] as const;
 type TabId = (typeof tabs)[number][0];
-type SavePhase = "idle" | "validating" | "translating" | "compressing" | "uploading" | "committing" | "success" | "error";
+type SavePhase = "idle" | "validating" | "compressing" | "uploading" | "committing" | "success" | "error";
 type LifecycleStatus = "draft" | "published" | "archived";
 
 function readableSaveError(reason: unknown, copy: (english: string, thai: string) => string) {
@@ -43,12 +44,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const amenities = useQuery(api.adminVillas.listAmenities) ?? [];
   const houseRules = useQuery(api.adminVillas.listHouseRules) ?? [];
   const saveEditor = useMutation(api.villaEditor.saveVillaEditor);
-  const acquireEditLock = useMutation(api.villaEditor.acquireEditLock);
-  const heartbeatEditLock = useMutation(api.villaEditor.heartbeatEditLock);
-  const releaseEditLock = useMutation(api.villaEditor.releaseEditLock);
-  const [sessionId] = useState(() => crypto.randomUUID());
-  const [lockNow, setLockNow] = useState(() => Date.now());
-  const editLock = useQuery(api.villaEditor.getEditLock, villaId ? { villaId, now: lockNow } : "skip");
   const generateUploadUrl = useMutation(api.adminVillas.generateUploadUrl);
   const cleanupUploads = useMutation(api.villaEditor.cleanupUncommittedPhotoUploads);
   const setStatus = useMutation(api.adminVillas.setStatus);
@@ -70,7 +65,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const setDraft = useCallback((updater: (value: VillaEditorDraft) => VillaEditorDraft) => setDraftState(updater), []);
   const dirty = baseline !== null && draftFingerprint(draft) !== draftFingerprint(baseline);
   const saving = !["idle", "success", "error"].includes(phase);
-  const lockedByOther = Boolean(editLock && !editLock.ownedByCurrentUser);
 
   const applyDetail = useCallback((nextDetail: VillaEditorDetail) => {
     currentDraft.current.photos.forEach((photo) => {
@@ -105,29 +99,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     currentDraft.current.photos.forEach((photo) => { if (photo.file && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url); });
   }, []);
 
-  useEffect(() => {
-    if (!villaId || !dirty || lockedByOther) return;
-    let active = true;
-    const refresh = async () => {
-      const result = await acquireEditLock({ villaId, sessionId });
-      if (!active) return;
-      setLockNow(Date.now());
-      if (!result.ownedByCurrentUser)
-        setError(copy(`${result.editorName} is editing this villa. You can view it, but cannot save changes.`, `${result.editorName} กำลังแก้ไขวิลล่านี้ คุณดูข้อมูลได้แต่บันทึกไม่ได้`));
-    };
-    void refresh();
-    const heartbeat = window.setInterval(async () => {
-      const owned = await heartbeatEditLock({ villaId, sessionId });
-      setLockNow(Date.now());
-      if (!owned) setError(copy("Your edit lock expired. Reload before continuing.", "ล็อกการแก้ไขหมดอายุ โปรดโหลดใหม่ก่อนดำเนินการต่อ"));
-    }, 10_000);
-    return () => {
-      active = false;
-      window.clearInterval(heartbeat);
-      void releaseEditLock({ villaId, sessionId });
-    };
-  }, [acquireEditLock, copy, dirty, heartbeatEditLock, lockedByOther, releaseEditLock, sessionId, villaId]);
-
   const canNavigate = useCallback(
     () => !dirty || window.confirm(copy("You have unsaved villa changes. Leave without saving them?", "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการออกโดยไม่บันทึกหรือไม่")),
     [copy, dirty],
@@ -142,7 +113,6 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     if (!baseline) return;
     draft.photos.forEach((photo) => { if (photo.file && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url); });
     setDraftState(baseline); setError(null); setPhase("idle");
-    if (villaId) void releaseEditLock({ villaId, sessionId });
   }
 
   async function upload(file: File) {
@@ -184,28 +154,27 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     const uploadedIds: Id<"_storage">[] = [];
     try {
       setProgress(0);
-      setPhase("translating");
-      const translatedDraft = await translateChangedDraft(draft, baseline);
-      if (!villaId) translatedDraft.villa.slug = villaSlugFromEnglish(translatedDraft.villa.nameEn);
-      const preparedPhotos = await preparePhotos(translatedDraft.photos, uploadedIds);
-      const preparedDraft = { ...translatedDraft, photos: preparedPhotos };
+      const nextDraft = { ...draft, villa: { ...draft.villa } };
+      if (!villaId) nextDraft.villa.slug = villaSlugFromEnglish(nextDraft.villa.nameEn);
+      const preparedPhotos = await preparePhotos(nextDraft.photos, uploadedIds);
+      const preparedDraft = { ...nextDraft, photos: preparedPhotos };
       setPhase("committing");
-      const villa = translatedDraft.villa;
+      const villa = nextDraft.villa;
       const result = await saveEditor({
             villaId,
-            sessionId: villaId ? sessionId : undefined,
+            expectedUpdatedAt: villaId ? loadedUpdatedAt : undefined,
             villa: {
               ...villa,
               formattedAddress: villa.formattedAddress.trim(), weekdayPriceThb: villa.weekdayPriceThb,
               weekendPriceThb: villa.weekendPriceThb || null, securityDepositThb: villa.securityDepositThb || null,
               googleCalendarId: villa.googleCalendarId.trim() || null,
             },
-            amenityIds: translatedDraft.amenityIds,
-            rules: translatedDraft.rules.map((rule) => ({ ruleId: rule.ruleId, clientKey: rule.key, textEn: rule.textEn, textTh: rule.textTh, textSource: rule.textSource, icon: rule.icon || null })),
-            sleeping: translatedDraft.sleeping.map((room) => ({ sleepingId: room.sleepingId, clientKey: room.key, bedroomNumber: room.bedroomNumber, beds: room.beds })),
+            amenityIds: nextDraft.amenityIds,
+            rules: nextDraft.rules.map((rule) => ({ ruleId: rule.ruleId, clientKey: rule.key, textEn: rule.textEn, textTh: rule.textTh, icon: rule.icon || null })),
+            sleeping: nextDraft.sleeping.map((room) => ({ sleepingId: room.sleepingId, clientKey: room.key, bedroomNumber: room.bedroomNumber, beds: room.beds })),
             photos: preparedPhotos.map((photo) => ({ photoId: photo.photoId, clientKey: photo.key, storageId: photo.storageId ?? null, thumbnailStorageId: photo.thumbnailStorageId ?? null, externalUrl: photo.externalUrl?.trim() || null })),
-            rates: translatedDraft.rates.map((rate) => ({ rateId: rate.rateId, clientKey: rate.key, labelEn: rate.labelEn, labelTh: rate.labelTh, labelSource: rate.labelSource, startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb })),
-            customAmenities: translatedDraft.customAmenities.map((item) => ({ clientKey: item.key, labelEn: item.labelEn, labelTh: item.labelTh, labelSource: item.labelSource, icon: item.icon || null })),
+            rates: nextDraft.rates.map((rate) => ({ rateId: rate.rateId, clientKey: rate.key, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb })),
+            customAmenities: nextDraft.customAmenities.map((item) => ({ clientKey: item.key, slug: item.slug, labelEn: item.labelEn, labelTh: item.labelTh, icon: item.icon || null })),
           });
       const savedDraft = preparedDraft;
       setDraftState(savedDraft); setBaseline(savedDraft); setPhase("success");
@@ -232,25 +201,25 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
 
   const status: LifecycleStatus = detail?.status ?? "draft";
   const localFiles = draft.photos.filter((photo) => photo.file).length;
-  const readiness = [draft.villa.nameSource, draft.villa.bedrooms > 0, draft.villa.maxGuests > 0, draft.photos.length > 0];
+  const villaName = localizedInputValue(locale, draft.villa.nameEn, draft.villa.nameTh) || draft.villa.nameEn || draft.villa.nameTh;
+  const readiness = [villaName, draft.villa.bedrooms > 0, draft.villa.maxGuests > 0, draft.photos.length > 0];
   const readyCount = readiness.filter(Boolean).length;
-  const phaseLabel = phase === "translating" ? copy("Translating changed content…", "กำลังแปลเนื้อหาที่แก้ไข…") : phase === "compressing" ? copy("Preparing photos…", "กำลังเตรียมรูปภาพ…") : phase === "uploading" ? copy(`Uploading photo ${progress + 1} of ${localFiles}`, `กำลังอัปโหลดรูป ${progress + 1} จาก ${localFiles}`) : phase === "committing" ? copy("Saving changes…", "กำลังบันทึกการเปลี่ยนแปลง…") : copy("Save changes", "บันทึกการเปลี่ยนแปลง");
+  const phaseLabel = phase === "compressing" ? copy("Preparing photos…", "กำลังเตรียมรูปภาพ…") : phase === "uploading" ? copy(`Uploading photo ${progress + 1} of ${localFiles}`, `กำลังอัปโหลดรูป ${progress + 1} จาก ${localFiles}`) : phase === "committing" ? copy("Saving changes…", "กำลังบันทึกการเปลี่ยนแปลง…") : copy("Save changes", "บันทึกการเปลี่ยนแปลง");
 
   return <div className="min-w-0 pb-4">
     <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-[#dbe0db] bg-white p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-      <div>{!villaId ? <button type="button" onClick={() => navigate("/admin/villas")} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0f6474] hover:underline"><ArrowLeft size={14} /> {copy("Back to villas", "กลับไปหน้าวิลล่า")}</button> : null}<div className={!villaId ? "mt-3 flex flex-wrap items-center gap-2" : "flex flex-wrap items-center gap-2"}><h2 className="font-serif text-2xl font-semibold text-[#001e33]">{villaId ? draft.villa.nameSource || copy("Edit villa", "แก้ไขวิลล่า") : copy("Create a villa", "สร้างวิลล่า")}</h2><AdminStatusBadge tone={status === "published" ? "success" : status === "draft" ? "warning" : "neutral"}>{status === "published" ? copy("published", "เผยแพร่แล้ว") : status === "draft" ? copy("draft", "ฉบับร่าง") : copy("archived", "เก็บถาวร")}</AdminStatusBadge></div><p className="mt-1 text-xs text-[#68777a]">{copy(`${readyCount} of ${readiness.length} publishing essentials complete`, `ข้อมูลสำคัญพร้อมเผยแพร่ ${readyCount} จาก ${readiness.length} รายการ`)}</p></div>
+      <div>{!villaId ? <button type="button" onClick={() => navigate("/admin/villas")} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0f6474] hover:underline"><ArrowLeft size={14} /> {copy("Back to villas", "กลับไปหน้าวิลล่า")}</button> : null}<div className={!villaId ? "mt-3 flex flex-wrap items-center gap-2" : "flex flex-wrap items-center gap-2"}><h2 className="font-serif text-2xl font-semibold text-[#001e33]">{villaId ? villaName || copy("Edit villa", "แก้ไขวิลล่า") : copy("Create a villa", "สร้างวิลล่า")}</h2><AdminStatusBadge tone={status === "published" ? "success" : status === "draft" ? "warning" : "neutral"}>{status === "published" ? copy("published", "เผยแพร่แล้ว") : status === "draft" ? copy("draft", "ฉบับร่าง") : copy("archived", "เก็บถาวร")}</AdminStatusBadge></div><p className="mt-1 text-xs text-[#68777a]">{copy(`${readyCount} of ${readiness.length} publishing essentials complete`, `ข้อมูลสำคัญพร้อมเผยแพร่ ${readyCount} จาก ${readiness.length} รายการ`)}</p></div>
       <div className="flex w-full flex-wrap gap-2 lg:w-auto">
         {villaId && draft.villa.slug ? <a href={`/${locale}/villas/${draft.villa.slug}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#cfc8bc] px-4 text-sm font-semibold text-[#001e33] lg:w-auto"><ExternalLink size={14} /> {copy("Public preview", "ดูตัวอย่างสาธารณะ")}</a> : null}
         {villaId && status !== "published" ? <AdminButton variant="secondary" disabled={dirty || saving} onClick={() => setPendingStatus("published")}>{copy("Publish", "เผยแพร่")}</AdminButton> : null}
       </div>
     </div>
     {error ? <AdminNotice tone="error" className="mb-4" title={copy("Changes not saved", "ยังไม่ได้บันทึกการเปลี่ยนแปลง")}>{error}</AdminNotice> : null}
-    {lockedByOther && editLock ? <AdminNotice tone="warning" className="mb-4" title={copy("Villa editing is locked", "วิลล่าถูกล็อกการแก้ไข")}>{copy(`${editLock.editorName} has unsaved changes. You can view this villa, but editing and saving are disabled until their lock is released or expires.`, `${editLock.editorName} มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก คุณดูวิลล่านี้ได้ แต่แก้ไขและบันทึกไม่ได้จนกว่าจะปลดล็อกหรือล็อกหมดอายุ`)}</AdminNotice> : null}
     {phase === "success" ? <AdminNotice tone="success" className="mb-4" title={copy("Villa saved", "บันทึกวิลล่าแล้ว")}><span className="inline-flex items-center gap-1"><CheckCircle2 size={13} /> {copy("Your villa changes are saved.", "บันทึกการเปลี่ยนแปลงของวิลล่าแล้ว")}</span></AdminNotice> : null}
     <div role="tablist" aria-label={copy("Villa editor sections", "ส่วนแก้ไขวิลล่า")} className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-[#dbe0db] bg-[#fbfaf6]/95 p-1 backdrop-blur md:sticky md:top-3 md:z-10 md:flex">
       {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)} className={`min-h-11 min-w-0 rounded-lg px-2 text-[11px] font-semibold leading-tight md:px-4 md:text-xs ${activeTab === id ? "bg-[#001e33] text-white" : "text-[#526266] hover:bg-white"}`}>{id === "details" ? copy(label, "รายละเอียด") : id === "location" ? copy(label, "ตำแหน่ง") : id === "pricing" ? copy(label, "ราคา") : id === "photos" ? copy(label, "รูปภาพ") : id === "experience" ? copy(label, "ประสบการณ์ผู้เข้าพัก") : copy(label, "การเชื่อมต่อ")}</button>)}
     </div>
-    <fieldset disabled={lockedByOther} className="min-w-0 disabled:opacity-75">
+    <fieldset className="min-w-0">
       <div role="tabpanel" className="min-w-0">
       {activeTab === "details" ? <div className="min-w-0 space-y-4">
         <DetailsSection draft={draft} setDraft={setDraft} />
@@ -271,7 +240,7 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     </div>
     </fieldset>
     {dirty || saving ? <div className="sticky bottom-3 z-20 mt-4 rounded-2xl border border-[#d5d8d4] bg-[#fbfaf6]/96 p-3 shadow-[0_8px_28px_rgba(0,30,51,.12)] backdrop-blur">
-      <div className="flex items-center justify-between gap-3"><p className="hidden text-xs text-[#68777a] sm:block">{copy("Unsaved changes", "มีการเปลี่ยนแปลงที่ยังไม่บันทึก")}</p><div className="ml-auto flex gap-2"><AdminButton variant="secondary" disabled={saving} onClick={discard}>{copy("Discard changes", "ยกเลิกการเปลี่ยนแปลง")}</AdminButton><AdminButton disabled={lockedByOther} busy={saving} busyLabel={phaseLabel} onClick={() => void save()}><Save size={15} /> {copy("Save changes", "บันทึกการเปลี่ยนแปลง")}</AdminButton></div></div>
+      <div className="flex items-center justify-between gap-3"><p className="hidden text-xs text-[#68777a] sm:block">{copy("Unsaved changes", "มีการเปลี่ยนแปลงที่ยังไม่บันทึก")}</p><div className="ml-auto flex gap-2"><AdminButton variant="secondary" disabled={saving} onClick={discard}>{copy("Discard changes", "ยกเลิกการเปลี่ยนแปลง")}</AdminButton><AdminButton busy={saving} busyLabel={phaseLabel} onClick={() => void save()}><Save size={15} /> {copy("Save changes", "บันทึกการเปลี่ยนแปลง")}</AdminButton></div></div>
     </div> : null}
     <ConfirmDialog open={pendingStatus !== null} onClose={() => setPendingStatus(null)} onConfirm={() => void confirmLifecycle()} title={pendingStatus === "published" ? copy("Publish this villa?", "เผยแพร่วิลล่านี้หรือไม่") : pendingStatus === "draft" ? copy("Return this villa to draft?", "นำวิลล่านี้กลับเป็นฉบับร่างหรือไม่") : copy("Archive this villa?", "เก็บวิลล่านี้ถาวรหรือไม่")} description={copy("This publication change is separate from villa content saving and will be recorded in the audit log.", "การเปลี่ยนสถานะการเผยแพร่นี้แยกจากการบันทึกเนื้อหาวิลล่าและจะถูกบันทึกในประวัติการใช้งาน")} confirmLabel={pendingStatus === "published" ? copy("Publish villa", "เผยแพร่วิลล่า") : pendingStatus === "draft" ? copy("Return to draft", "กลับเป็นฉบับร่าง") : copy("Archive villa", "เก็บวิลล่าถาวร")} tone={pendingStatus === "archived" ? "destructive" : "primary"} busy={statusBusy} />
     <ConfirmDialog open={conflict} onClose={() => setConflict(false)} onConfirm={() => { if (detail) applyDetail(detail); }} title={copy("A newer villa version is available", "มีข้อมูลวิลล่าเวอร์ชันใหม่กว่า")} description={copy("Another administrator saved this villa after you opened it. Load the latest version before editing again. Your current unsaved changes will be replaced.", "ผู้ดูแลคนอื่นบันทึกวิลล่านี้หลังจากคุณเปิดหน้า โปรดโหลดเวอร์ชันล่าสุดก่อนแก้ไขอีกครั้ง การเปลี่ยนแปลงที่ยังไม่บันทึกของคุณจะถูกแทนที่")} confirmLabel={copy("Load latest", "โหลดเวอร์ชันล่าสุด")} tone="primary" />

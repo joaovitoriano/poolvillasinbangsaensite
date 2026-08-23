@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { amenitySlug } from "./lib/amenities";
 import { writeAudit } from "./lib/audit";
@@ -10,12 +9,11 @@ import { bedTypeValidator, villaStatusValidator } from "./lib/validators";
 const nullableString = v.union(v.string(), v.null());
 const nullableNumber = v.union(v.number(), v.null());
 const nullableStorageId = v.union(v.id("_storage"), v.null());
-const LOCK_TTL_MS = 30_000;
 
 export const villaEditorDetailsValidator = v.object({
   slug: v.string(),
-  nameEn: v.string(), nameTh: v.string(), nameSource: v.string(),
-  descriptionEn: v.string(), descriptionTh: v.string(), descriptionSource: v.string(),
+  nameEn: v.string(), nameTh: v.string(),
+  descriptionEn: v.string(), descriptionTh: v.string(),
   latitude: v.number(), longitude: v.number(), formattedAddress: v.string(),
   weekdayPriceThb: v.number(), weekendPriceThb: nullableNumber,
   bedrooms: v.number(), bathrooms: v.number(), maxGuests: v.number(), parkingSpaces: v.number(),
@@ -24,7 +22,7 @@ export const villaEditorDetailsValidator = v.object({
 });
 const rateInputValidator = v.object({
   rateId: v.optional(v.id("specialRates")), clientKey: v.string(),
-  labelEn: v.string(), labelTh: v.string(), labelSource: v.string(),
+  labelEn: v.string(), labelTh: v.string(),
   startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(),
 });
 const photoInputValidator = v.object({
@@ -32,11 +30,11 @@ const photoInputValidator = v.object({
   storageId: nullableStorageId, thumbnailStorageId: nullableStorageId, externalUrl: nullableString,
 });
 const customAmenityValidator = v.object({
-  clientKey: v.string(), labelEn: v.string(), labelTh: v.string(), labelSource: v.string(), icon: nullableString,
+  clientKey: v.string(), slug: v.string(), labelEn: v.string(), labelTh: v.string(), icon: nullableString,
 });
 const ruleInputValidator = v.object({
   ruleId: v.optional(v.id("houseRules")), clientKey: v.string(),
-  textEn: v.string(), textTh: v.string(), textSource: v.string(), icon: nullableString,
+  textEn: v.string(), textTh: v.string(), icon: nullableString,
 });
 const sleepingInputValidator = v.object({
   sleepingId: v.optional(v.id("sleepingArrangements")), clientKey: v.string(),
@@ -45,7 +43,7 @@ const sleepingInputValidator = v.object({
 
 export const villaEditorPayloadValidator = v.object({
   villaId: v.optional(v.id("villas")),
-  sessionId: v.optional(v.string()),
+  expectedUpdatedAt: v.optional(v.number()),
   villa: villaEditorDetailsValidator,
   rates: v.array(rateInputValidator),
   photos: v.array(photoInputValidator),
@@ -60,7 +58,7 @@ const savedRuleValidator = ruleInputValidator.extend({ ruleId: v.id("houseRules"
 const savedSleepingValidator = sleepingInputValidator.extend({ sleepingId: v.id("sleepingArrangements") });
 const savedAmenityValidator = v.object({
   amenityId: v.id("amenities"), slug: v.string(), labelEn: v.string(), labelTh: v.string(),
-  labelSource: v.string(), icon: nullableString,
+  icon: nullableString,
 });
 
 export const villaEditorSnapshotValidator = v.object({
@@ -73,13 +71,6 @@ export const villaEditorSnapshotValidator = v.object({
 
 function optionalString(value: string | null) {
   return value?.trim() || undefined;
-}
-
-async function assertEditSession(ctx: MutationCtx, villaId: Id<"villas">, workosUserId: string, sessionId: string | undefined) {
-  const lock = await ctx.db.query("villaEditSessions").withIndex("by_villaId", (q) => q.eq("villaId", villaId)).unique();
-  if (!sessionId || !lock || lock.sessionId !== sessionId || lock.workosUserId !== workosUserId || lock.expiresAt <= Date.now())
-    throw new Error("Your villa edit lock expired. Reload before saving. / ล็อกการแก้ไขวิลล่าหมดอายุ โปรดโหลดใหม่ก่อนบันทึก");
-  return lock;
 }
 
 export const get = query({
@@ -99,12 +90,12 @@ export const get = query({
     const amenities = (await Promise.all(amenityLinks.map((link) => ctx.db.get("amenities", link.amenityId))))
       .filter((item) => item !== null).map((item) => ({
         amenityId: item._id, slug: item.slug, labelEn: item.labelEn, labelTh: item.labelTh,
-        labelSource: item.labelSource ?? item.labelEn, icon: item.icon ?? null,
+        icon: item.icon ?? null,
       }));
     const rules = (await Promise.all(ruleLinks.map((link) => ctx.db.get("houseRules", link.houseRuleId))))
       .filter((item) => item !== null).map((item) => ({
         ruleId: item._id, clientKey: item._id, textEn: item.textEn, textTh: item.textTh,
-        textSource: item.textSource ?? item.textEn, icon: item.icon ?? null,
+        icon: item.icon ?? null,
       }));
     const photoRows = await Promise.all(photos.map(async (photo) => ({
       photoId: photo._id, clientKey: photo._id,
@@ -117,8 +108,8 @@ export const get = query({
     return {
       villaId: villa._id, status: villa.status, createdAt: villa._creationTime, updatedAt: villa.updatedAt,
       details: {
-        slug: villa.slug, nameEn: villa.nameEn, nameTh: villa.nameTh, nameSource: villa.nameSource ?? villa.nameEn,
-        descriptionEn: villa.descriptionEn, descriptionTh: villa.descriptionTh, descriptionSource: villa.descriptionSource ?? villa.descriptionEn,
+        slug: villa.slug, nameEn: villa.nameEn, nameTh: villa.nameTh,
+        descriptionEn: villa.descriptionEn, descriptionTh: villa.descriptionTh,
         latitude: villa.latitude, longitude: villa.longitude, formattedAddress: villa.formattedAddress,
         weekdayPriceThb: villa.weekdayPriceThb, weekendPriceThb: villa.weekendPriceThb ?? null,
         bedrooms: villa.bedrooms, bathrooms: villa.bathrooms, maxGuests: villa.maxGuests, parkingSpaces: villa.parkingSpaces,
@@ -128,7 +119,7 @@ export const get = query({
       },
       rates: rates.map((rate) => ({
         rateId: rate._id, clientKey: rate._id,
-        labelEn: rate.labelEn, labelTh: rate.labelTh, labelSource: rate.labelSource ?? rate.labelEn,
+        labelEn: rate.labelEn, labelTh: rate.labelTh,
         startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb,
       })),
       photos: photoRows,
@@ -148,18 +139,18 @@ export const saveVillaEditor = mutation({
     const actor = await requireAdmin(ctx);
     const now = Date.now();
     let villaId = args.villaId;
-    let lockId: Id<"villaEditSessions"> | null = null;
     let previousGoogleCalendarId: string | undefined;
     const nextGoogleCalendarId = optionalString(args.villa.googleCalendarId);
     if (villaId) {
       const villa = await ctx.db.get("villas", villaId);
       if (!villa) throw new Error("Villa not found / ไม่พบวิลล่า");
+      if (args.expectedUpdatedAt === undefined || args.expectedUpdatedAt !== villa.updatedAt)
+        throw new Error("This villa was updated by someone else. Load the latest version before saving again. / วิลล่านี้ถูกอัปเดตโดยผู้ดูแลคนอื่น โปรดโหลดเวอร์ชันล่าสุดก่อนบันทึกอีกครั้ง");
       previousGoogleCalendarId = optionalString(villa.googleCalendarId ?? null);
-      lockId = (await assertEditSession(ctx, villaId, actor.workosUserId, args.sessionId))._id;
       await ctx.db.replace("villas", villaId, {
         slug: args.villa.slug.trim(), status: villa.status,
-        nameEn: args.villa.nameEn.trim(), nameTh: args.villa.nameTh.trim(), nameSource: args.villa.nameSource.trim(),
-        descriptionEn: args.villa.descriptionEn.trim(), descriptionTh: args.villa.descriptionTh.trim(), descriptionSource: args.villa.descriptionSource.trim(),
+        nameEn: args.villa.nameEn.trim(), nameTh: args.villa.nameTh.trim(),
+        descriptionEn: args.villa.descriptionEn.trim(), descriptionTh: args.villa.descriptionTh.trim(),
         latitude: args.villa.latitude, longitude: args.villa.longitude, formattedAddress: args.villa.formattedAddress.trim(),
         weekdayPriceThb: args.villa.weekdayPriceThb, weekendPriceThb: args.villa.weekendPriceThb ?? undefined,
         bedrooms: args.villa.bedrooms, bathrooms: args.villa.bathrooms, maxGuests: args.villa.maxGuests, parkingSpaces: args.villa.parkingSpaces,
@@ -170,8 +161,8 @@ export const saveVillaEditor = mutation({
     } else {
       villaId = await ctx.db.insert("villas", {
         slug: args.villa.slug.trim(), status: "draft",
-        nameEn: args.villa.nameEn.trim(), nameTh: args.villa.nameTh.trim(), nameSource: args.villa.nameSource.trim(),
-        descriptionEn: args.villa.descriptionEn.trim(), descriptionTh: args.villa.descriptionTh.trim(), descriptionSource: args.villa.descriptionSource.trim(),
+        nameEn: args.villa.nameEn.trim(), nameTh: args.villa.nameTh.trim(),
+        descriptionEn: args.villa.descriptionEn.trim(), descriptionTh: args.villa.descriptionTh.trim(),
         latitude: args.villa.latitude, longitude: args.villa.longitude, formattedAddress: args.villa.formattedAddress.trim(),
         weekdayPriceThb: args.villa.weekdayPriceThb, weekendPriceThb: args.villa.weekendPriceThb ?? undefined,
         bedrooms: args.villa.bedrooms, bathrooms: args.villa.bathrooms, maxGuests: args.villa.maxGuests, parkingSpaces: args.villa.parkingSpaces,
@@ -192,7 +183,7 @@ export const saveVillaEditor = mutation({
     for (const rows of childRows) for (const row of rows) await ctx.db.delete(row._id);
     for (const [sortOrder, rate] of args.rates.entries())
       await ctx.db.insert("specialRates", {
-        villaId, labelEn: rate.labelEn.trim(), labelTh: rate.labelTh.trim(), labelSource: rate.labelSource.trim(),
+        villaId, labelEn: rate.labelEn.trim(), labelTh: rate.labelTh.trim(),
         startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb, sortOrder,
       });
     for (const [sortOrder, photo] of args.photos.entries())
@@ -202,11 +193,11 @@ export const saveVillaEditor = mutation({
       });
     const amenityIds = new Set(args.amenityIds);
     for (const custom of args.customAmenities) {
-      const slug = amenitySlug(custom.labelEn);
+      const slug = custom.slug.trim() || amenitySlug(custom.labelEn) || amenitySlug(custom.labelTh) || `custom-${custom.clientKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
       const existing = await ctx.db.query("amenities").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
       const amenityId = existing?._id ?? await ctx.db.insert("amenities", {
         slug, labelEn: custom.labelEn.trim(), labelTh: custom.labelTh.trim(),
-        labelSource: custom.labelSource.trim(), icon: optionalString(custom.icon),
+        icon: optionalString(custom.icon),
       });
       amenityIds.add(amenityId);
     }
@@ -221,74 +212,18 @@ export const saveVillaEditor = mutation({
         const textEn = rule.textEn.trim();
         const existing = await ctx.db.query("houseRules").withIndex("by_textEn", (q) => q.eq("textEn", textEn)).unique();
         houseRuleId = existing?._id ?? await ctx.db.insert("houseRules", {
-          textEn, textTh: rule.textTh.trim(), textSource: rule.textSource.trim(), icon: optionalString(rule.icon),
+          textEn, textTh: rule.textTh.trim(), icon: optionalString(rule.icon),
         });
       }
       await ctx.db.insert("villaHouseRules", { villaId, houseRuleId });
     }
     for (const room of args.sleeping)
       await ctx.db.insert("sleepingArrangements", { villaId, bedroomNumber: room.bedroomNumber, beds: room.beds });
-    if (lockId) await ctx.db.delete(lockId);
     await writeAudit(ctx, actor, args.villaId ? "update" : "create", "villa", villaId);
     if (previousGoogleCalendarId !== nextGoogleCalendarId) {
       await ctx.scheduler.runAfter(0, internal.googleCalendar.reconcileVilla, { villaId });
     }
     return { villaId, updatedAt: now };
-  },
-});
-
-const lockResultValidator = v.object({
-  ownedByCurrentUser: v.boolean(), editorName: v.string(), expiresAt: v.number(),
-});
-
-export const getEditLock = query({
-  args: { villaId: v.id("villas"), now: v.number() },
-  returns: v.union(v.null(), lockResultValidator),
-  handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
-    const lock = await ctx.db.query("villaEditSessions").withIndex("by_villaId", (q) => q.eq("villaId", args.villaId)).unique();
-    if (!lock || lock.expiresAt <= args.now) return null;
-    return { ownedByCurrentUser: lock.workosUserId === actor.workosUserId, editorName: "Another administrator / ผู้ดูแลระบบคนอื่น", expiresAt: lock.expiresAt };
-  },
-});
-
-export const acquireEditLock = mutation({
-  args: { villaId: v.id("villas"), sessionId: v.string() },
-  returns: lockResultValidator,
-  handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
-    const now = Date.now();
-    const existing = await ctx.db.query("villaEditSessions").withIndex("by_villaId", (q) => q.eq("villaId", args.villaId)).unique();
-    if (existing && existing.expiresAt > now && (existing.workosUserId !== actor.workosUserId || existing.sessionId !== args.sessionId)) {
-      return { ownedByCurrentUser: false, editorName: "Another administrator / ผู้ดูแลระบบคนอื่น", expiresAt: existing.expiresAt };
-    }
-    const expiresAt = now + LOCK_TTL_MS;
-    if (existing) await ctx.db.replace("villaEditSessions", existing._id, { villaId: args.villaId, workosUserId: actor.workosUserId, sessionId: args.sessionId, expiresAt });
-    else await ctx.db.insert("villaEditSessions", { villaId: args.villaId, workosUserId: actor.workosUserId, sessionId: args.sessionId, expiresAt });
-    return { ownedByCurrentUser: true, editorName: actor.workosUserId, expiresAt };
-  },
-});
-
-export const heartbeatEditLock = mutation({
-  args: { villaId: v.id("villas"), sessionId: v.string() },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
-    const lock = await ctx.db.query("villaEditSessions").withIndex("by_villaId", (q) => q.eq("villaId", args.villaId)).unique();
-    if (!lock || lock.workosUserId !== actor.workosUserId || lock.sessionId !== args.sessionId || lock.expiresAt <= Date.now()) return false;
-    await ctx.db.patch("villaEditSessions", lock._id, { expiresAt: Date.now() + LOCK_TTL_MS });
-    return true;
-  },
-});
-
-export const releaseEditLock = mutation({
-  args: { villaId: v.id("villas"), sessionId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const actor = await requireAdmin(ctx);
-    const lock = await ctx.db.query("villaEditSessions").withIndex("by_villaId", (q) => q.eq("villaId", args.villaId)).unique();
-    if (lock && lock.workosUserId === actor.workosUserId && lock.sessionId === args.sessionId) await ctx.db.delete(lock._id);
-    return null;
   },
 });
 

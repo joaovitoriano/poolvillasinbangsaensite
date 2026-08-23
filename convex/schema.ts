@@ -13,8 +13,7 @@ import {
 export default defineSchema({
   villas: defineTable({
     slug: v.string(), status: villaStatusValidator, nameEn: v.string(), nameTh: v.string(),
-    nameSource: v.optional(v.string()),
-    descriptionEn: v.string(), descriptionTh: v.string(), descriptionSource: v.optional(v.string()),
+    descriptionEn: v.string(), descriptionTh: v.string(),
     latitude: v.number(), longitude: v.number(), formattedAddress: v.string(),
     weekdayPriceThb: v.number(), weekendPriceThb: v.optional(v.number()),
     bedrooms: v.number(), bathrooms: v.number(), maxGuests: v.number(), parkingSpaces: v.number(),
@@ -31,19 +30,19 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
 
-  amenities: defineTable({ slug: v.string(), labelEn: v.string(), labelTh: v.string(), labelSource: v.optional(v.string()), icon: v.optional(v.string()) })
+  amenities: defineTable({ slug: v.string(), labelEn: v.string(), labelTh: v.string(), icon: v.optional(v.string()) })
     .index("by_slug", ["slug"]),
   villaAmenities: defineTable({ villaId: v.id("villas"), amenityId: v.id("amenities") })
     .index("by_villaId", ["villaId"]).index("by_amenityId", ["amenityId"]).index("by_villaId_and_amenityId", ["villaId", "amenityId"]),
   sleepingArrangements: defineTable({ villaId: v.id("villas"), bedroomNumber: v.number(), beds: v.array(bedTypeValidator) })
     .index("by_villaId_and_bedroomNumber", ["villaId", "bedroomNumber"]),
-  houseRules: defineTable({ textEn: v.string(), textTh: v.string(), textSource: v.optional(v.string()), icon: v.optional(v.string()) })
+  houseRules: defineTable({ textEn: v.string(), textTh: v.string(), icon: v.optional(v.string()) })
     .index("by_textEn", ["textEn"]),
   villaHouseRules: defineTable({ villaId: v.id("villas"), houseRuleId: v.id("houseRules") })
     .index("by_villaId", ["villaId"]).index("by_houseRuleId", ["houseRuleId"]).index("by_villaId_and_houseRuleId", ["villaId", "houseRuleId"]),
 
   specialRates: defineTable({
-    villaId: v.id("villas"), labelEn: v.string(), labelTh: v.string(), labelSource: v.optional(v.string()),
+    villaId: v.id("villas"), labelEn: v.string(), labelTh: v.string(),
     startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(), sortOrder: v.number(),
   }).index("by_villaId_and_sortOrder", ["villaId", "sortOrder"]),
 
@@ -64,11 +63,9 @@ export default defineSchema({
     businessName: v.string(), phone: v.string(), lineId: v.string(), notificationEmails: v.array(v.string()),
     lineNotificationUserId: v.optional(v.string()),
     notificationLanguage: notificationLanguageValidator,
-    defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(), defaultSeoTitleSource: v.optional(v.string()), defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(), defaultSeoDescriptionSource: v.optional(v.string()),
+    defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(), defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(),
   }),
   auditLogs: defineTable({ actorWorkosUserId: v.string(), action: auditActionValidator, entityType: v.string(), entityId: v.string() }),
-  villaEditSessions: defineTable({ villaId: v.id("villas"), workosUserId: v.string(), sessionId: v.string(), expiresAt: v.number() })
-    .index("by_villaId", ["villaId"]).index("by_workosUserId", ["workosUserId"]),
   googleCalendarChannels: defineTable({
     villaId: v.id("villas"), calendarId: v.string(), channelId: v.string(), resourceId: v.optional(v.string()), channelToken: v.string(),
     status: v.union(v.literal("pending"), v.literal("active"), v.literal("error"), v.literal("stopped")),

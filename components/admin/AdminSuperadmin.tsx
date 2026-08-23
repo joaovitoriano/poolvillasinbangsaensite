@@ -20,9 +20,8 @@ import {
   AdminStatusBadge,
   AdminTextarea,
 } from "./AdminUI";
-import { translateChangedSettingsContent } from "./settings-translation";
 import { useAdminLocale } from "./AdminLocale";
-import { translatedInputValue } from "./translated-input";
+import { localizedInputValue } from "./localized-input";
 
 export function AdminSuperadmin({ view, role }: { view: string; role: "admin" | "superadmin" }) {
   const { copy } = useAdminLocale();
@@ -62,7 +61,7 @@ function BusinessSettingsPanel() {
 }
 
 function SettingsPanel() {
-  const { copy } = useAdminLocale();
+  const { locale, copy } = useAdminLocale();
   const settings = useQuery(api.settings.getAdmin);
   const update = useMutation(api.settings.updateChanges);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -76,29 +75,30 @@ function SettingsPanel() {
     setBusy(true); setMessage(null);
     try {
       const changes: FunctionArgs<typeof api.settings.updateChanges> = {};
-      const bilingual = await translateChangedSettingsContent({
-        title: { source: String(data.get("defaultSeoTitleSource")), previousSource: currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn, english: currentSettings.defaultSeoTitleEn, thai: currentSettings.defaultSeoTitleTh },
-        description: { source: String(data.get("defaultSeoDescriptionSource")), previousSource: currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn, english: currentSettings.defaultSeoDescriptionEn, thai: currentSettings.defaultSeoDescriptionTh },
-      });
-      if (bilingual.title.source !== (currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn)) Object.assign(changes, { defaultSeoTitleSource: bilingual.title.source, defaultSeoTitleEn: bilingual.title.english, defaultSeoTitleTh: bilingual.title.thai });
-      if (bilingual.description.source !== (currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn)) Object.assign(changes, { defaultSeoDescriptionSource: bilingual.description.source, defaultSeoDescriptionEn: bilingual.description.english, defaultSeoDescriptionTh: bilingual.description.thai });
+      const titleKey = locale === "th" ? "defaultSeoTitleTh" : "defaultSeoTitleEn";
+      const descriptionKey = locale === "th" ? "defaultSeoDescriptionTh" : "defaultSeoDescriptionEn";
+      const title = String(data.get(titleKey));
+      const description = String(data.get(descriptionKey));
+      if (title !== currentSettings[titleKey]) changes[titleKey] = title;
+      if (description !== currentSettings[descriptionKey]) changes[descriptionKey] = description;
       if (Object.keys(changes).length) await update(changes);
       setMessage({ tone: "success", text: copy("Settings saved.", "บันทึกการตั้งค่าแล้ว") });
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : copy("Settings could not be saved.", "ไม่สามารถบันทึกการตั้งค่าได้") });
     } finally { setBusy(false); }
   }
-  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Search defaults", "ค่าเริ่มต้นสำหรับการค้นหา")} /><div className="grid gap-5 p-4 sm:p-5"><LocalizedSettingsField name="defaultSeoTitleSource" label={copy("Default SEO title", "ชื่อ SEO เริ่มต้น")} english={currentSettings.defaultSeoTitleEn} thai={currentSettings.defaultSeoTitleTh} source={currentSettings.defaultSeoTitleSource ?? currentSettings.defaultSeoTitleEn} /><LocalizedSettingsField multiline name="defaultSeoDescriptionSource" label={copy("Default SEO description", "คำอธิบาย SEO เริ่มต้น")} english={currentSettings.defaultSeoDescriptionEn} thai={currentSettings.defaultSeoDescriptionTh} source={currentSettings.defaultSeoDescriptionSource ?? currentSettings.defaultSeoDescriptionEn} /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
+  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Search defaults", "ค่าเริ่มต้นสำหรับการค้นหา")} /><div className="grid gap-5 p-4 sm:p-5"><LocalizedSettingsField nameEn="defaultSeoTitleEn" nameTh="defaultSeoTitleTh" label={copy("Default SEO title", "ชื่อ SEO เริ่มต้น")} english={currentSettings.defaultSeoTitleEn} thai={currentSettings.defaultSeoTitleTh} /><LocalizedSettingsField multiline nameEn="defaultSeoDescriptionEn" nameTh="defaultSeoDescriptionTh" label={copy("Default SEO description", "คำอธิบาย SEO เริ่มต้น")} english={currentSettings.defaultSeoDescriptionEn} thai={currentSettings.defaultSeoDescriptionTh} /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
 }
 
-function LocalizedSettingsField({ name, label, english, thai, source, guide, multiline = false }: { name: string; label: string; english: string; thai: string; source: string; guide?: number; multiline?: boolean }) {
+function LocalizedSettingsField({ nameEn, nameTh, label, english, thai, guide, multiline = false }: { nameEn: string; nameTh: string; label: string; english: string; thai: string; guide?: number; multiline?: boolean }) {
   const { locale, copy } = useAdminLocale();
-  const [values, setValues] = useState({ english, thai, source });
-  useEffect(() => setValues({ english, thai, source }), [english, thai, source]);
-  const value = translatedInputValue(locale, values.english, values.thai);
+  const [values, setValues] = useState({ english, thai });
+  useEffect(() => setValues({ english, thai }), [english, thai]);
+  const value = localizedInputValue(locale, values.english, values.thai);
   const helper = guide ? copy(`${value.length} characters · around ${guide} is a useful search-result guide, not a hard limit.`, `${value.length} ตัวอักษร · ประมาณ ${guide} ตัวเป็นแนวทางที่เหมาะสมสำหรับผลการค้นหา ไม่ใช่ข้อจำกัดตายตัว`) : undefined;
-  const change = (next: string) => setValues((current) => ({ ...current, source: next, [locale === "th" ? "thai" : "english"]: next }));
-  return <><input type="hidden" name={name} value={values.source} />{multiline ? <AdminTextarea label={label} value={value} sourceText={values.source} onChange={(event) => change(event.target.value)} helper={helper} optional /> : <AdminField label={label} value={value} sourceText={values.source} onChange={(event) => change(event.target.value)} helper={helper} optional />}</>;
+  const change = (next: string) => setValues((current) => ({ ...current, [locale === "th" ? "thai" : "english"]: next }));
+  const name = locale === "th" ? nameTh : nameEn;
+  return multiline ? <AdminTextarea name={name} label={label} value={value} onChange={(event) => change(event.target.value)} helper={helper} optional /> : <AdminField name={name} label={label} value={value} onChange={(event) => change(event.target.value)} helper={helper} optional />;
 }
 
 function SeoPanel() {

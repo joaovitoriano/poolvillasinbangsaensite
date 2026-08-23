@@ -13,8 +13,8 @@ const system = <TableName extends string>(table: TableName) => ({ _id: v.id(tabl
 export const villaDocumentValidator = v.object({
   ...system("villas"),
   slug: v.string(), status: villaStatusValidator,
-  nameEn: v.string(), nameTh: v.string(), nameSource: v.optional(v.string()),
-  descriptionEn: v.string(), descriptionTh: v.string(), descriptionSource: v.optional(v.string()),
+  nameEn: v.string(), nameTh: v.string(),
+  descriptionEn: v.string(), descriptionTh: v.string(),
   latitude: v.number(), longitude: v.number(), formattedAddress: v.string(),
   weekdayPriceThb: v.number(), weekendPriceThb: v.optional(v.number()),
   bedrooms: v.number(), bathrooms: v.number(), maxGuests: v.number(), parkingSpaces: v.number(),
@@ -30,16 +30,16 @@ export const villaPhotoDocumentValidator = v.object({
 
 export const amenityDocumentValidator = v.object({
   ...system("amenities"), slug: v.string(), labelEn: v.string(), labelTh: v.string(),
-  labelSource: v.optional(v.string()), icon: v.optional(v.string()),
+  icon: v.optional(v.string()),
 });
 export const villaAmenityDocumentValidator = v.object({ ...system("villaAmenities"), villaId: v.id("villas"), amenityId: v.id("amenities") });
 export const sleepingDocumentValidator = v.object({ ...system("sleepingArrangements"), villaId: v.id("villas"), bedroomNumber: v.number(), beds: v.array(bedTypeValidator) });
-export const houseRuleDocumentValidator = v.object({ ...system("houseRules"), textEn: v.string(), textTh: v.string(), textSource: v.optional(v.string()), icon: v.optional(v.string()) });
+export const houseRuleDocumentValidator = v.object({ ...system("houseRules"), textEn: v.string(), textTh: v.string(), icon: v.optional(v.string()) });
 export const villaHouseRuleDocumentValidator = v.object({ ...system("villaHouseRules"), villaId: v.id("villas"), houseRuleId: v.id("houseRules") });
 
 export const specialRateDocumentValidator = v.object({
   ...system("specialRates"), villaId: v.id("villas"),
-  labelEn: v.string(), labelTh: v.string(), labelSource: v.optional(v.string()),
+  labelEn: v.string(), labelTh: v.string(),
   startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(), sortOrder: v.number(),
 });
 
@@ -63,15 +63,12 @@ export const siteSettingsDocumentValidator = v.object({
   ...system("siteSettings"), businessName: v.string(), phone: v.string(), lineId: v.string(),
   notificationEmails: v.array(v.string()), lineNotificationUserId: v.optional(v.string()),
   notificationLanguage: v.union(v.literal("en"), v.literal("th")),
-  defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(), defaultSeoTitleSource: v.optional(v.string()),
-  defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(), defaultSeoDescriptionSource: v.optional(v.string()),
+  defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(),
+  defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(),
 });
 
 export const auditLogDocumentValidator = v.object({
   ...system("auditLogs"), actorWorkosUserId: v.string(), action: auditActionValidator, entityType: v.string(), entityId: v.string(),
-});
-export const villaEditSessionDocumentValidator = v.object({
-  ...system("villaEditSessions"), villaId: v.id("villas"), workosUserId: v.string(), sessionId: v.string(), expiresAt: v.number(),
 });
 export const googleCalendarChannelDocumentValidator = v.object({
   ...system("googleCalendarChannels"), villaId: v.id("villas"), calendarId: v.string(),
