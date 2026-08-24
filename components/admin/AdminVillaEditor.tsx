@@ -173,7 +173,7 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
             rules: nextDraft.rules.map((rule) => ({ ruleId: rule.ruleId, clientKey: rule.key, textEn: rule.textEn, textTh: rule.textTh, icon: rule.icon || null })),
             sleeping: nextDraft.sleeping.map((room) => ({ sleepingId: room.sleepingId, clientKey: room.key, bedroomNumber: room.bedroomNumber, beds: room.beds })),
             photos: preparedPhotos.map((photo) => ({ photoId: photo.photoId, clientKey: photo.key, storageId: photo.storageId ?? null, thumbnailStorageId: photo.thumbnailStorageId ?? null, externalUrl: photo.externalUrl?.trim() || null })),
-            rates: nextDraft.rates.map((rate) => ({ rateId: rate.rateId, clientKey: rate.key, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb })),
+            rates: nextDraft.rates.map((rate) => ({ rateId: rate.rateId, clientKey: rate.key, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, recurringDay: rate.recurringDay, nightlyPriceThb: rate.nightlyPriceThb })),
             customAmenities: nextDraft.customAmenities.map((item) => ({ clientKey: item.key, slug: item.slug, labelEn: item.labelEn, labelTh: item.labelTh, icon: item.icon || null })),
           });
       const savedDraft = preparedDraft;

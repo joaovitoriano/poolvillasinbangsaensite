@@ -1,5 +1,5 @@
 import type { Doc } from "../_generated/dataModel";
-import { enumerateNights, isWeekendNight } from "./dates";
+import { enumerateNights, isWeekendNight, parseDate } from "./dates";
 
 export type NightlyQuote = {
   date: string;
@@ -10,13 +10,15 @@ export type NightlyQuote = {
 
 export function calculateQuote(
   villa: Pick<Doc<"villas">, "weekdayPriceThb" | "weekendPriceThb">,
-  specialRates: Array<Pick<Doc<"specialRates">, "labelEn" | "startDate" | "endDate" | "nightlyPriceThb" | "sortOrder">>,
+  specialRates: Array<Pick<Doc<"specialRates">, "labelEn" | "startDate" | "endDate" | "recurringDay" | "nightlyPriceThb" | "sortOrder">>,
   checkIn: string,
   checkOut: string,
 ) {
   const nights: NightlyQuote[] = enumerateNights(checkIn, checkOut).map((date) => {
     const matching = specialRates
-      .filter((rate) => rate.startDate <= date && date < rate.endDate)
+      .filter((rate) => rate.recurringDay === "sunday"
+        ? parseDate(date).getUTCDay() === 0
+        : rate.startDate <= date && date < rate.endDate)
       .sort((a, b) => a.sortOrder - b.sortOrder);
     const selected = matching[0];
     if (selected) return { date, priceThb: selected.nightlyPriceThb, rateKind: "special" as const, rateLabel: selected.labelEn };

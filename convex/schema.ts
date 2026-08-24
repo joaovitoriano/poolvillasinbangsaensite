@@ -43,7 +43,8 @@ export default defineSchema({
 
   specialRates: defineTable({
     villaId: v.id("villas"), labelEn: v.string(), labelTh: v.string(),
-    startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(), sortOrder: v.number(),
+    startDate: v.string(), endDate: v.string(), recurringDay: v.optional(v.literal("sunday")),
+    nightlyPriceThb: v.number(), sortOrder: v.number(),
   }).index("by_villaId_and_sortOrder", ["villaId", "sortOrder"]),
 
   availabilityBlocks: defineTable({

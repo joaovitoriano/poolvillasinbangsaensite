@@ -21,6 +21,7 @@ type Rate = {
   labelTh: string;
   startDate: string;
   endDate: string;
+  recurringDay?: "sunday";
   nightlyPriceThb: number;
   sortOrder: number;
 };
@@ -206,7 +207,9 @@ function VillaBookingCalendarContent(props: CalendarProps) {
 
   function nightlyRate(date: string) {
     const match = props.rates
-      .filter((rate) => rate.startDate <= date && date < rate.endDate)
+      .filter((rate) => rate.recurringDay === "sunday"
+        ? atUtc(date).getUTCDay() === 0
+        : rate.startDate <= date && date < rate.endDate)
       .sort((a, b) => a.sortOrder - b.sortOrder)[0];
     if (match)
       return {

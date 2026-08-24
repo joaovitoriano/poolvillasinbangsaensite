@@ -30,6 +30,7 @@ export type RateDraft = {
   labelTh: string;
   startDate: string;
   endDate: string;
+  recurringDay?: "sunday";
   nightlyPriceThb: number;
 };
 
@@ -107,7 +108,7 @@ export function detailToDraft(detail: VillaEditorDetail): VillaEditorDraft {
       securityDepositThb: villa.securityDepositThb ?? 0,
       sortOrder: villa.sortOrder, googleCalendarId: villa.googleCalendarId ?? "",
     },
-    rates: [...detail.rates].map((rate) => ({ key: rate.clientKey, rateId: rate.rateId, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb })),
+    rates: [...detail.rates].map((rate) => ({ key: rate.clientKey, rateId: rate.rateId, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, recurringDay: rate.recurringDay, nightlyPriceThb: rate.nightlyPriceThb })),
     amenityIds: detail.amenities.map((amenity) => amenity.amenityId), customAmenities: [],
     rules: detail.rules.map((rule) => ({ key: rule.clientKey, ruleId: rule.ruleId, textEn: rule.textEn, textTh: rule.textTh, icon: rule.icon ?? "other" })),
     sleeping: normalizeSleepingRooms(detail.sleeping.map((room) => ({ key: room.clientKey, sleepingId: room.sleepingId, bedroomNumber: room.bedroomNumber, beds: room.beds })), villa.bedrooms),

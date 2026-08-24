@@ -40,7 +40,8 @@ export const villaHouseRuleDocumentValidator = v.object({ ...system("villaHouseR
 export const specialRateDocumentValidator = v.object({
   ...system("specialRates"), villaId: v.id("villas"),
   labelEn: v.string(), labelTh: v.string(),
-  startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(), sortOrder: v.number(),
+  startDate: v.string(), endDate: v.string(), recurringDay: v.optional(v.literal("sunday")),
+  nightlyPriceThb: v.number(), sortOrder: v.number(),
 });
 
 export const availabilityBlockDocumentValidator = v.object({

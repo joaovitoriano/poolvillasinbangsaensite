@@ -23,7 +23,8 @@ export const villaEditorDetailsValidator = v.object({
 const rateInputValidator = v.object({
   rateId: v.optional(v.id("specialRates")), clientKey: v.string(),
   labelEn: v.string(), labelTh: v.string(),
-  startDate: v.string(), endDate: v.string(), nightlyPriceThb: v.number(),
+  startDate: v.string(), endDate: v.string(), recurringDay: v.optional(v.literal("sunday")),
+  nightlyPriceThb: v.number(),
 });
 const photoInputValidator = v.object({
   photoId: v.optional(v.id("villaPhotos")), clientKey: v.string(),
@@ -120,7 +121,8 @@ export const get = query({
       rates: rates.map((rate) => ({
         rateId: rate._id, clientKey: rate._id,
         labelEn: rate.labelEn, labelTh: rate.labelTh,
-        startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb,
+        startDate: rate.startDate, endDate: rate.endDate, recurringDay: rate.recurringDay,
+        nightlyPriceThb: rate.nightlyPriceThb,
       })),
       photos: photoRows,
       amenities,
@@ -181,11 +183,15 @@ export const saveVillaEditor = mutation({
     ]);
     if (childRows.some((rows) => rows.length > 100)) throw new Error("Villa content exceeds the supported editor limit / เนื้อหาวิลล่าเกินขีดจำกัดของตัวแก้ไข");
     for (const rows of childRows) for (const row of rows) await ctx.db.delete(row._id);
-    for (const [sortOrder, rate] of args.rates.entries())
+    for (const [sortOrder, rate] of args.rates.entries()) {
       await ctx.db.insert("specialRates", {
         villaId, labelEn: rate.labelEn.trim(), labelTh: rate.labelTh.trim(),
-        startDate: rate.startDate, endDate: rate.endDate, nightlyPriceThb: rate.nightlyPriceThb, sortOrder,
+        startDate: rate.recurringDay ? "" : rate.startDate,
+        endDate: rate.recurringDay ? "" : rate.endDate,
+        recurringDay: rate.recurringDay,
+        nightlyPriceThb: rate.nightlyPriceThb, sortOrder,
       });
+    }
     for (const [sortOrder, photo] of args.photos.entries())
       await ctx.db.insert("villaPhotos", {
         villaId, storageId: photo.storageId ?? undefined, thumbnailStorageId: photo.thumbnailStorageId ?? undefined,

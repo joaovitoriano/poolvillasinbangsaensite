@@ -38,5 +38,5 @@ export async function relevantSpecialRates(
       "Pricing history is too large to quote safely. Ask an administrator to archive old rates. / ประวัติราคามีจำนวนมากเกินกว่าจะคำนวณได้อย่างปลอดภัย โปรดติดต่อผู้ดูแลให้เก็บราคาเก่า",
     );
   }
-  return rows.filter((rate) => rate.startDate < checkOut);
+  return rows.filter((rate) => rate.recurringDay === "sunday" || rate.startDate < checkOut);
 }
