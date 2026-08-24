@@ -214,8 +214,6 @@ function VillaBookingCalendarContent(props: CalendarProps) {
     if (match)
       return {
         price: match.nightlyPriceThb,
-        label: th ? match.labelTh : match.labelEn,
-        special: true,
       };
     const day = atUtc(date).getUTCDay();
     const weekend = day === 5 || day === 6;
@@ -223,14 +221,6 @@ function VillaBookingCalendarContent(props: CalendarProps) {
       price: weekend
         ? (props.weekendPriceThb ?? props.weekdayPriceThb)
         : props.weekdayPriceThb,
-      label: weekend
-        ? th
-          ? "สุดสัปดาห์"
-          : "Weekend"
-        : th
-          ? "วันธรรมดา"
-          : "Weekday",
-      special: false,
     };
   }
   function isBlocked(date: string) {
@@ -490,13 +480,6 @@ function VillaBookingCalendarContent(props: CalendarProps) {
                     <span className="text-xs font-bold leading-none sm:text-sm">
                       {Number(date.slice(-2))}
                     </span>
-                    {rate.special && !past && !blocked ? (
-                      <span
-                        className={`hidden max-w-[65%] truncate text-[9px] uppercase sm:block ${selected ? "text-white/70" : "text-[var(--terracotta)]"}`}
-                      >
-                        {rate.label}
-                      </span>
-                    ) : null}
                   </span>
                   {blocked ? (
                     <span className="mt-1 flex items-center justify-center gap-1 text-[8px] font-bold uppercase sm:mt-auto sm:text-[10px]">
@@ -505,7 +488,7 @@ function VillaBookingCalendarContent(props: CalendarProps) {
                     </span>
                   ) : !past ? (
                     <span
-                      className={`font-price mt-1 block w-full truncate text-[8px] font-bold leading-none sm:mt-auto sm:text-base ${selected ? "text-white" : rate.special ? "text-[var(--terracotta)]" : "text-[var(--ink)]"}`}
+                      className={`font-price mt-1 block w-full truncate text-[8px] font-bold leading-none sm:mt-auto sm:text-base ${selected ? "text-white" : "text-[var(--ink)]"}`}
                     >
                       ฿{shortPrice(rate.price)}
                     </span>
