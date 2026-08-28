@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { env, type MutationCtx, type QueryCtx } from "../_generated/server";
+import { env, type ActionCtx, type MutationCtx, type QueryCtx } from "../_generated/server";
 
 export const effectiveRoleValidator = v.union(v.literal("admin"), v.literal("superadmin"));
 
@@ -23,7 +23,7 @@ function rolesFromClaims(claims: Record<string, unknown>) {
   return roles;
 }
 
-export async function getSessionUser(ctx: QueryCtx | MutationCtx): Promise<SessionUser | null> {
+export async function getSessionUser(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<SessionUser | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
   const claims = identity as unknown as Record<string, unknown>;
@@ -39,7 +39,7 @@ export async function getSessionUser(ctx: QueryCtx | MutationCtx): Promise<Sessi
   };
 }
 
-export async function requireUser(ctx: QueryCtx | MutationCtx) {
+export async function requireUser(ctx: QueryCtx | MutationCtx | ActionCtx) {
   const user = await getSessionUser(ctx);
   if (!user) throw new Error("Administrator access required");
   return user;
@@ -47,7 +47,7 @@ export async function requireUser(ctx: QueryCtx | MutationCtx) {
 
 export const requireAdmin = requireUser;
 
-export async function requireSuperadmin(ctx: QueryCtx | MutationCtx) {
+export async function requireSuperadmin(ctx: QueryCtx | MutationCtx | ActionCtx) {
   const user = await requireUser(ctx);
   if (user.role !== "superadmin") throw new Error("Superadmin access required");
   return user;

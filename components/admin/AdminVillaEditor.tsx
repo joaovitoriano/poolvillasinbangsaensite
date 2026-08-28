@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ArrowLeft, ExternalLink, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { AdminButton, AdminNotice, AdminSkeleton, AdminStatusBadge, AdminToast, 
 import { localizedInputValue } from "./localized-input";
 import { DetailsSection, GuestExperienceSection, IntegrationsSection, LocationSection, PricingSection } from "./villa-editor/VillaEditorSections";
 import { VillaPhotoEditor } from "./villa-editor/VillaPhotoEditor";
-import { createBlankDraft, detailToDraft, draftFingerprint, villaSlugFromEnglish, type PhotoDraft, type VillaEditorDraft, type VillaEditorDetail } from "./villa-editor/model";
+import { createBlankDraft, detailToDraft, draftFingerprint, villaSlugFromEnglish, type PhotoDraft, type PhotoVariantDraft, type VillaEditorDraft, type VillaEditorDetail } from "./villa-editor/model";
 
 const tabs = [
   ["details", "Details"], ["location", "Location"], ["pricing", "Pricing"],
@@ -45,6 +45,7 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const houseRules = useQuery(api.adminVillas.listHouseRules) ?? [];
   const saveEditor = useMutation(api.villaEditor.saveVillaEditor);
   const generateUploadUrl = useMutation(api.adminVillas.generateUploadUrl);
+  const createPhotoVariants = useAction(api.photoVariants.createForUpload);
   const cleanupUploads = useMutation(api.villaEditor.cleanupUncommittedPhotoUploads);
   const setStatus = useMutation(api.adminVillas.setStatus);
   const initial = useMemo(() => createBlankDraft(), []);
@@ -127,27 +128,38 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     const jobs = photos.map((photo, index) => ({ photo, index })).filter((job) => job.photo.file);
     let finished = 0;
     for (const job of jobs) {
-      const variants = [];
-      setPhase("compressing");
-      for await (const generated of createVillaImageVariants(job.photo.file!)) {
-        setPhase("uploading");
-        const storageId = await upload(generated.file);
-        uploadedIds.push(storageId);
-        variants.push({
-          storageId,
-          width: generated.width,
-          height: generated.height,
-          byteSize: generated.byteSize,
-          format: generated.format,
-        });
+      const trackUpload = (storageId: Id<"_storage">) => {
+        if (!uploadedIds.includes(storageId)) uploadedIds.push(storageId);
+      };
+      setPhase("uploading");
+      const originalStorageId = await upload(job.photo.file!);
+      trackUpload(originalStorageId);
+      let variants: PhotoVariantDraft[];
+      try {
         setPhase("compressing");
+        variants = await createPhotoVariants({ originalStorageId });
+        variants.forEach((variant) => trackUpload(variant.storageId));
+      } catch {
+        variants = [];
+        for await (const generated of createVillaImageVariants(job.photo.file!)) {
+          setPhase("uploading");
+          const storageId = await upload(generated.file);
+          trackUpload(storageId);
+          variants.push({
+            storageId,
+            width: generated.width,
+            height: generated.height,
+            byteSize: generated.byteSize,
+            format: generated.format,
+          });
+          setPhase("compressing");
+        }
       }
       const smallest = variants[0];
-      const largest = variants.at(-1);
-      if (!smallest || !largest) throw new Error("No responsive image variants were created");
+      if (!smallest) throw new Error("No lossless image variants were created / ไม่ได้สร้างรูปภาพแบบไม่สูญเสียคุณภาพ");
       next[job.index] = {
         ...job.photo,
-        storageId: largest.storageId,
+        storageId: originalStorageId,
         thumbnailStorageId: smallest.storageId,
         variants,
       };

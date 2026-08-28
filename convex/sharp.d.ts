@@ -1,8 +1,19 @@
 declare module "sharp" {
-  type Metadata = { width?: number; height?: number; format?: string; autoOrient?: { width: number; height: number } };
+  type Metadata = {
+    width?: number;
+    height?: number;
+    format?: string;
+    autoOrient?: { width: number; height: number };
+  };
   type OutputInfo = { width: number; height: number };
-  type ResizeOptions = { width: number; withoutEnlargement?: boolean };
-  type WebpOptions = { quality?: number; effort?: number };
+  type ResizeOptions = { width: number; withoutEnlargement?: boolean; kernel?: string };
+  type WebpOptions = {
+    quality?: number;
+    effort?: number;
+    lossless?: boolean;
+    exact?: boolean;
+    smartSubsample?: boolean;
+  };
   interface SharpInstance {
     rotate(): SharpInstance;
     resize(options: ResizeOptions): SharpInstance;

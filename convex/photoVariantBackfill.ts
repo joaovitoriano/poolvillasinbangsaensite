@@ -1,30 +1,15 @@
 "use node";
 
-import sharp from "sharp";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, type ActionCtx } from "./_generated/server";
-
-const TARGETS = [720, 1080, 1440, 2048, 2560] as const;
-const BYTE_BUDGETS: Record<number, number> = {
-  720: 140_000,
-  1080: 240_000,
-  1440: 380_000,
-  2048: 650_000,
-  2560: 900_000,
-};
-const REUSABLE_SOURCE_FORMATS = new Set(["image/webp", "image/jpeg", "image/png", "image/avif"] as const);
-type ReusableSourceFormat = "image/webp" | "image/jpeg" | "image/png" | "image/avif";
-
-function sourceFormat(blobType: string, sharpFormat?: string): ReusableSourceFormat | undefined {
-  if (REUSABLE_SOURCE_FORMATS.has(blobType as ReusableSourceFormat)) return blobType as ReusableSourceFormat;
-  if (sharpFormat === "jpeg") return "image/jpeg";
-  if (sharpFormat === "png") return "image/png";
-  if (sharpFormat === "webp") return "image/webp";
-  if (sharpFormat === "avif") return "image/avif";
-  return undefined;
-}
+import {
+  encodeLosslessWebp,
+  plannedVariantWidths,
+  readImageSource,
+  reusableImageFormat,
+} from "./lib/losslessImageVariants";
 
 type PhotoSource = {
   photoId: Id<"villaPhotos">;
@@ -45,16 +30,6 @@ type BackfillResult = {
   continueCursor: string;
   isDone: boolean;
 };
-
-async function encodeVariant(input: Buffer, width: number, budget: number) {
-  let quality = 84;
-  let output = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).webp({ quality, effort: 4 }).toBuffer({ resolveWithObject: true });
-  while (output.data.byteLength > budget && quality > 68) {
-    quality -= 4;
-    output = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).webp({ quality, effort: 4 }).toBuffer({ resolveWithObject: true });
-  }
-  return output;
-}
 
 async function sourceBlob(
   ctx: ActionCtx,
@@ -82,45 +57,40 @@ async function processPhoto(
 ): Promise<number> {
   const blob = await sourceBlob(ctx, photo);
   const input = Buffer.from(await blob.arrayBuffer());
-  const metadata = await sharp(input).rotate().metadata();
-  if (!metadata.width || !metadata.height) throw new Error("Image dimensions could not be read");
-  const sourceWidth = metadata.autoOrient?.width ?? metadata.width;
-  const sourceHeight = metadata.autoOrient?.height ?? metadata.height;
-  const maximumWidth = Math.min(sourceWidth, TARGETS.at(-1)!);
-  const widths = [...new Set([...TARGETS.filter((width) => width < maximumWidth), maximumWidth])];
+  const source = await readImageSource(input);
+  const widths = plannedVariantWidths(source.width);
   const existing = new Set(photo.existingWidths);
-  const reusableSourceFormat = sourceFormat(blob.type, metadata.format);
-  const canReuseSource = Boolean(
-    photo.storageId &&
-    sourceWidth <= TARGETS.at(-1)! &&
-    reusableSourceFormat,
-  );
+  const reusableSourceFormat = reusableImageFormat(blob.type, source.format);
   let created = 0;
   for (const width of widths) {
-    if (width === sourceWidth && canReuseSource && photo.storageId && reusableSourceFormat) {
+    if (existing.has(width)) continue;
+    if (width === source.width && photo.storageId && reusableSourceFormat) {
       await ctx.runMutation(internal.photoVariantBackfillData.recordVariant, {
         villaPhotoId: photo.photoId,
         storageId: photo.storageId,
-        width: sourceWidth,
-        height: sourceHeight,
+        width: source.width,
+        height: source.height,
         byteSize: blob.size,
         format: reusableSourceFormat,
       });
-      if (!existing.has(width)) created += 1;
+      created += 1;
       continue;
     }
-    if (existing.has(width)) continue;
-    const budget = BYTE_BUDGETS[width] ?? Math.max(90_000, Math.round(width * 350));
-    const output = await encodeVariant(input, width, budget);
+    const output = await encodeLosslessWebp(input, width);
     const storageId = await ctx.storage.store(new Blob([new Uint8Array(output.data)], { type: "image/webp" }));
-    await ctx.runMutation(internal.photoVariantBackfillData.recordVariant, {
-      villaPhotoId: photo.photoId,
-      storageId,
-      width: output.info.width,
-      height: output.info.height,
-      byteSize: output.data.byteLength,
-      format: "image/webp",
-    });
+    try {
+      await ctx.runMutation(internal.photoVariantBackfillData.recordVariant, {
+        villaPhotoId: photo.photoId,
+        storageId,
+        width: output.info.width,
+        height: output.info.height,
+        byteSize: output.data.byteLength,
+        format: "image/webp",
+      });
+    } catch (error) {
+      await ctx.storage.delete(storageId);
+      throw error;
+    }
     created += 1;
   }
   return created;
@@ -148,5 +118,24 @@ export const processBatch = action({
       continueCursor: page.continueCursor,
       isDone: page.isDone,
     };
+  },
+});
+
+export const removeLegacyVariants = action({
+  args: { variantIds: v.array(v.id("villaPhotoVariants")) },
+  returns: v.object({ deletedVariantRecords: v.number(), deletedStorageFiles: v.number() }),
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.photoVariantBackfillData.requireBackfillAccess, {});
+    const candidates: Array<{ variantId: Id<"villaPhotoVariants">; storageId: Id<"_storage"> }> = await ctx.runQuery(
+      internal.photoVariantBackfillData.validateVariantRemoval,
+      { variantIds: args.variantIds },
+    );
+    await ctx.runMutation(internal.photoVariantBackfillData.removeVariantRecords, { candidates });
+    let deletedStorageFiles = 0;
+    for (const candidate of candidates) {
+      await ctx.storage.delete(candidate.storageId);
+      deletedStorageFiles += 1;
+    }
+    return { deletedVariantRecords: candidates.length, deletedStorageFiles };
   },
 });

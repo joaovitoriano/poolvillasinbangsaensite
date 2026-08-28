@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { ResponsiveImage, type ResponsivePhoto } from "@/components/ResponsiveImage";
+import { preloadResponsiveImage, ResponsiveImage, type ResponsivePhoto } from "@/components/ResponsiveImage";
 import { formatNumericDateRange } from "@/lib/date-format";
 import { shouldBypassImageOptimization } from "@/lib/remote-image";
 
@@ -333,12 +333,30 @@ function SmallStayCalendar({
 
 function RotatingHeroImage({ images, locale }: { images: ResponsivePhoto[]; locale: Locale }) {
   const [active, setActive] = useState(0);
+  const imageSizes = "(min-width:1024px) 50vw, 100vw";
 
   useEffect(() => {
     if (images.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setActive((value) => (value + 1) % images.length), 6500);
-    return () => window.clearInterval(timer);
-  }, [images.length]);
+    const timer = window.setTimeout(() => {
+      const next = (active + 1) % images.length;
+      void preloadResponsiveImage(images[next], imageSizes).catch(() => undefined).finally(() => setActive(next));
+    }, 6500);
+    return () => window.clearTimeout(timer);
+  }, [active, imageSizes, images]);
+
+  useEffect(() => {
+    for (const [index, photo] of images.entries()) {
+      const distance = Math.min(Math.abs(index - active), images.length - Math.abs(index - active));
+      if (distance <= 1) void preloadResponsiveImage(photo, imageSizes).catch(() => undefined);
+    }
+  }, [active, imageSizes, images]);
+
+  async function showImage(index: number) {
+    const photo = images[index];
+    if (!photo) return;
+    await preloadResponsiveImage(photo, imageSizes).catch(() => undefined);
+    setActive(index);
+  }
 
   return (
     <div
@@ -352,7 +370,9 @@ function RotatingHeroImage({ images, locale }: { images: ResponsivePhoto[]; loca
           photo={photo}
           alt={locale === "th" ? "พูลวิลล่าในบางแสน" : "Pool villa in Bang Saen"}
           priority={index === 0}
-          sizes="(min-width:1024px) 50vw, 100vw"
+          loading="eager"
+          fetchPriority={index === 0 ? "high" : "low"}
+          sizes={imageSizes}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${index === active ? "opacity-100" : "opacity-0"}`}
         /> : null;
       })}
@@ -363,7 +383,9 @@ function RotatingHeroImage({ images, locale }: { images: ResponsivePhoto[]; loca
             key={photo.url ?? photo.variants[0]?.url ?? index}
             type="button"
             aria-label={locale === "th" ? `แสดงรูปที่ ${index + 1}` : `Show image ${index + 1}`}
-            onClick={() => setActive(index)}
+            onPointerEnter={() => void preloadResponsiveImage(photo, imageSizes)}
+            onFocus={() => void preloadResponsiveImage(photo, imageSizes)}
+            onClick={() => void showImage(index)}
             className={`h-1.5 transition-all ${index === active ? "w-8 bg-white" : "w-3 bg-white/45"}`}
           />
         ))}

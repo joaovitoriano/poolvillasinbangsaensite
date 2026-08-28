@@ -2,10 +2,11 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { useEffect, useState } from "react";
-import { ResponsiveImage, type ResponsiveImageVariant } from "@/components/ResponsiveImage";
+import { useEffect, useMemo, useState } from "react";
+import { preloadResponsiveImage, ResponsiveImage, type ResponsiveImageVariant } from "@/components/ResponsiveImage";
 
 type Photo = { _id: string; url: string | null; variants: ResponsiveImageVariant[] };
+const GALLERY_IMAGE_SIZES = "(min-width: 1344px) 1280px, (min-width: 1024px) calc(100vw - 64px), 100vw";
 
 function visibleWindow(active: number, count: number, size: number) {
   const windowSize = Math.min(count, size);
@@ -14,7 +15,7 @@ function visibleWindow(active: number, count: number, size: number) {
 }
 
 export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; locale: "en" | "th"; villaName: string }) {
-  const usable = photos.filter((photo): photo is Photo & { url: string } => Boolean(photo.url));
+  const usable = useMemo(() => photos.filter((photo): photo is Photo & { url: string } => Boolean(photo.url)), [photos]);
   const [emblaRef, emblaApi] = useEmblaCarousel({ align: "start", containScroll: "trimSnaps", duration: 30, loop: false, skipSnaps: false });
   const [active, setActive] = useState(0);
   const [windowSize, setWindowSize] = useState(3);
@@ -47,8 +48,28 @@ export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; l
     return () => window.clearTimeout(id);
   }, []);
 
-  if (!usable.length) return null;
   const mounted = visibleWindow(active, usable.length, windowSize);
+
+  useEffect(() => {
+    for (const index of visibleWindow(active, usable.length, windowSize)) {
+      const photo = usable[index];
+      if (photo) void preloadResponsiveImage(photo, GALLERY_IMAGE_SIZES).catch(() => undefined);
+    }
+  }, [active, usable, windowSize]);
+
+  function preloadAt(index: number) {
+    const target = usable[index];
+    return target ? preloadResponsiveImage(target, GALLERY_IMAGE_SIZES) : Promise.resolve();
+  }
+
+  async function scrollTo(index: number) {
+    const target = usable[index];
+    if (!target || !emblaApi) return;
+    await preloadResponsiveImage(target, GALLERY_IMAGE_SIZES).catch(() => undefined);
+    emblaApi.scrollTo(index);
+  }
+
+  if (!usable.length) return null;
 
   return (
     <section className="bg-[var(--paper)] lg:px-8 lg:pt-7" aria-label={locale === "th" ? "แกลเลอรีรูปภาพวิลล่า" : "Villa photo gallery"}>
@@ -57,14 +78,14 @@ export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; l
           <div className="flex touch-pan-y">
             {usable.map((photo, index) => (
               <figure key={photo._id} className="relative aspect-[5/4] min-w-0 flex-[0_0_100%] sm:aspect-[4/3] lg:aspect-[16/7]">
-                {mounted.has(index) ? <ResponsiveImage photo={photo} alt={locale === "th" ? `${villaName} รูปที่ ${index + 1} จาก ${usable.length}` : `${villaName}, photo ${index + 1} of ${usable.length}`} priority={index === 0} sizes="(min-width: 1344px) 1280px, (min-width: 1024px) calc(100vw - 64px), 100vw" draggable={false} className="absolute inset-0 h-full w-full object-cover" /> : null}
+                {mounted.has(index) ? <ResponsiveImage photo={photo} alt={locale === "th" ? `${villaName} รูปที่ ${index + 1} จาก ${usable.length}` : `${villaName}, photo ${index + 1} of ${usable.length}`} priority={index === 0} loading="eager" fetchPriority={index === 0 ? "high" : "low"} sizes={GALLERY_IMAGE_SIZES} draggable={false} className="absolute inset-0 h-full w-full object-cover" /> : null}
               </figure>
             ))}
           </div>
         </div>
         {usable.length > 1 ? <>
-          <button type="button" aria-label={locale === "th" ? "รูปก่อนหน้า" : "Previous photo"} disabled={!canScrollPrev} onClick={() => emblaApi?.scrollPrev()} className="absolute left-5 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white/92 text-[var(--navy)] shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] lg:grid"><ChevronLeft size={20} /></button>
-          <button type="button" aria-label={locale === "th" ? "รูปถัดไป" : "Next photo"} disabled={!canScrollNext} onClick={() => emblaApi?.scrollNext()} className="absolute right-5 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white/92 text-[var(--navy)] shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] lg:grid"><ChevronRight size={20} /></button>
+          <button type="button" aria-label={locale === "th" ? "รูปก่อนหน้า" : "Previous photo"} disabled={!canScrollPrev} onPointerEnter={() => void preloadAt(active - 1)} onFocus={() => void preloadAt(active - 1)} onClick={() => void scrollTo(active - 1)} className="absolute left-5 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white/92 text-[var(--navy)] shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] lg:grid"><ChevronLeft size={20} /></button>
+          <button type="button" aria-label={locale === "th" ? "รูปถัดไป" : "Next photo"} disabled={!canScrollNext} onPointerEnter={() => void preloadAt(active + 1)} onFocus={() => void preloadAt(active + 1)} onClick={() => void scrollTo(active + 1)} className="absolute right-5 top-1/2 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-white/92 text-[var(--navy)] shadow-md transition hover:bg-white disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] lg:grid"><ChevronRight size={20} /></button>
           <div className="absolute bottom-4 left-1/2 flex max-w-[calc(100%-7rem)] -translate-x-1/2 gap-1.5" aria-hidden="true">{usable.slice(0, 12).map((photo, index) => <span key={photo._id} className={`h-1.5 rounded-full transition-all ${index === active ? "w-5 bg-white" : "w-1.5 bg-white/55"}`} />)}</div>
         </> : null}
         <span className="absolute bottom-3 right-3 rounded-md bg-black/65 px-2.5 py-1.5 font-mono text-[10px] font-medium text-white backdrop-blur-sm lg:bottom-5 lg:right-5">{active + 1} / {usable.length}</span>

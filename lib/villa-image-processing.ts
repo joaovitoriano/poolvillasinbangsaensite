@@ -1,50 +1,16 @@
 const TARGETS = [720, 1080, 1440, 2048, 2560] as const;
-const BYTE_BUDGETS: Record<number, number> = {
-  720: 140_000,
-  1080: 240_000,
-  1440: 380_000,
-  2048: 650_000,
-  2560: 900_000,
-};
+type BrowserVariantFormat = "image/png";
 
-type BrowserVariantFormat = "image/webp" | "image/jpeg";
-
-function variantName(name: string, width: number, format: BrowserVariantFormat) {
+function variantName(name: string, width: number) {
   const base = name.replace(/\.[^.]+$/, "") || "villa-photo";
-  return `${base}-${width}w.${format === "image/webp" ? "webp" : "jpg"}`;
+  return `${base}-${width}w.png`;
 }
 
-function canvasBlob(canvas: HTMLCanvasElement, quality: number) {
+function canvasBlob(canvas: HTMLCanvasElement) {
   return new Promise<Blob>((resolve, reject) => canvas.toBlob(
     (value) => value ? resolve(value) : reject(new Error("Image conversion failed")),
-    "image/webp",
-    quality,
+    "image/png",
   ));
-}
-
-async function encodeWithinBudget(canvas: HTMLCanvasElement, budget: number) {
-  let quality = 0.86;
-  let format: BrowserVariantFormat = "image/webp";
-  let blob = await canvasBlob(canvas, quality);
-  if (blob.type !== format) {
-    format = "image/jpeg";
-    blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-      (value) => value?.type === format ? resolve(value) : reject(new Error("This browser cannot encode villa images")),
-      format,
-      quality,
-    ));
-  }
-  while (blob.size > budget && quality > 0.68) {
-    quality -= 0.04;
-    blob = format === "image/webp"
-      ? await canvasBlob(canvas, quality)
-      : await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-        (value) => value?.type === format ? resolve(value) : reject(new Error("Image conversion failed")),
-        format,
-        quality,
-      ));
-  }
-  return { blob, format };
 }
 
 export type GeneratedPhotoVariant = {
@@ -91,14 +57,13 @@ export async function* createVillaImageVariants(file: File): AsyncGenerator<Gene
       const context = canvas.getContext("2d");
       if (!context) throw new Error("This browser cannot prepare responsive images");
       context.drawImage(decoded.source, 0, 0, width, height);
-      const budget = BYTE_BUDGETS[width] ?? Math.max(90_000, Math.round(width * 350));
-      const { blob, format } = await encodeWithinBudget(canvas, budget);
+      const blob = await canvasBlob(canvas);
       yield {
-        file: new File([blob], variantName(file.name, width, format), { type: format }),
+        file: new File([blob], variantName(file.name, width), { type: "image/png" }),
         width,
         height,
         byteSize: blob.size,
-        format,
+        format: "image/png",
       };
     }
   } finally {

@@ -69,3 +69,47 @@ export const recordVariant = internalMutation({
     return null;
   },
 });
+
+const removalCandidateValidator = v.object({
+  variantId: v.id("villaPhotoVariants"),
+  storageId: v.id("_storage"),
+});
+
+export const validateVariantRemoval = internalQuery({
+  args: { variantIds: v.array(v.id("villaPhotoVariants")) },
+  returns: v.array(removalCandidateValidator),
+  handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+    if (new Set(args.variantIds).size !== args.variantIds.length) throw new Error("Variant IDs must be unique");
+    const candidates = [];
+    for (const variantId of args.variantIds) {
+      const variant = await ctx.db.get("villaPhotoVariants", variantId);
+      if (!variant) throw new Error(`Variant ${variantId} no longer exists`);
+      const originalReference = await ctx.db.query("villaPhotos")
+        .withIndex("by_storageId", (q) => q.eq("storageId", variant.storageId)).first();
+      const thumbnailReference = await ctx.db.query("villaPhotos")
+        .withIndex("by_thumbnailStorageId", (q) => q.eq("thumbnailStorageId", variant.storageId)).first();
+      const variantReferences = await ctx.db.query("villaPhotoVariants")
+        .withIndex("by_storageId", (q) => q.eq("storageId", variant.storageId)).take(2);
+      if (originalReference || thumbnailReference || variantReferences.some((reference) => reference._id !== variantId)) {
+        throw new Error(`Storage file ${variant.storageId} has another reference and cannot be removed`);
+      }
+      candidates.push({ variantId, storageId: variant.storageId });
+    }
+    return candidates;
+  },
+});
+
+export const removeVariantRecords = internalMutation({
+  args: { candidates: v.array(removalCandidateValidator) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireSuperadmin(ctx);
+    for (const candidate of args.candidates) {
+      const variant = await ctx.db.get("villaPhotoVariants", candidate.variantId);
+      if (!variant || variant.storageId !== candidate.storageId) throw new Error("Variant changed before removal");
+      await ctx.db.delete("villaPhotoVariants", candidate.variantId);
+    }
+    return null;
+  },
+});
