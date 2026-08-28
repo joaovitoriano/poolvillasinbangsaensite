@@ -4,11 +4,15 @@ import { mutation, query } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { amenitySlug } from "./lib/amenities";
 import { writeAudit } from "./lib/audit";
-import { bedTypeValidator, villaStatusValidator } from "./lib/validators";
+import { bedTypeValidator, imageVariantFormatValidator, villaStatusValidator } from "./lib/validators";
 
 const nullableString = v.union(v.string(), v.null());
 const nullableNumber = v.union(v.number(), v.null());
 const nullableStorageId = v.union(v.id("_storage"), v.null());
+const photoVariantInputValidator = v.object({
+  storageId: v.id("_storage"), width: v.number(), height: v.number(), byteSize: v.number(), format: imageVariantFormatValidator,
+});
+const savedPhotoVariantValidator = photoVariantInputValidator.extend({ url: v.string() });
 
 export const villaEditorDetailsValidator = v.object({
   slug: v.string(),
@@ -29,6 +33,7 @@ const rateInputValidator = v.object({
 const photoInputValidator = v.object({
   photoId: v.optional(v.id("villaPhotos")), clientKey: v.string(),
   storageId: nullableStorageId, thumbnailStorageId: nullableStorageId, externalUrl: nullableString,
+  variants: v.optional(v.array(photoVariantInputValidator)),
 });
 const customAmenityValidator = v.object({
   clientKey: v.string(), slug: v.string(), labelEn: v.string(), labelTh: v.string(), icon: nullableString,
@@ -54,7 +59,10 @@ export const villaEditorPayloadValidator = v.object({
   sleeping: v.array(sleepingInputValidator),
 });
 const savedRateValidator = rateInputValidator.extend({ rateId: v.id("specialRates") });
-const savedPhotoValidator = photoInputValidator.extend({ photoId: v.id("villaPhotos"), url: nullableString, thumbnailUrl: nullableString });
+const savedPhotoValidator = photoInputValidator.extend({
+  photoId: v.id("villaPhotos"), url: nullableString, thumbnailUrl: nullableString,
+  variants: v.array(savedPhotoVariantValidator),
+});
 const savedRuleValidator = ruleInputValidator.extend({ ruleId: v.id("houseRules") });
 const savedSleepingValidator = sleepingInputValidator.extend({ sleepingId: v.id("sleepingArrangements") });
 const savedAmenityValidator = v.object({
@@ -98,14 +106,23 @@ export const get = query({
         ruleId: item._id, clientKey: item._id, textEn: item.textEn, textTh: item.textTh,
         icon: item.icon ?? null,
       }));
-    const photoRows = await Promise.all(photos.map(async (photo) => ({
-      photoId: photo._id, clientKey: photo._id,
-      storageId: photo.storageId ?? null, thumbnailStorageId: photo.thumbnailStorageId ?? null,
-      externalUrl: photo.externalUrl ?? null,
-      url: photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
-      thumbnailUrl: photo.thumbnailStorageId ? await ctx.storage.getUrl(photo.thumbnailStorageId) :
-        photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
-    })));
+    const photoRows = await Promise.all(photos.map(async (photo) => {
+      const variants = await ctx.db.query("villaPhotoVariants")
+        .withIndex("by_villaPhotoId_and_width", (q) => q.eq("villaPhotoId", photo._id)).take(10);
+      const variantsWithUrls = (await Promise.all(variants.map(async (variant) => {
+        const url = await ctx.storage.getUrl(variant.storageId);
+        return url ? { storageId: variant.storageId, width: variant.width, height: variant.height, byteSize: variant.byteSize, format: variant.format, url } : null;
+      }))).filter((variant) => variant !== null);
+      return {
+        photoId: photo._id, clientKey: photo._id,
+        storageId: photo.storageId ?? null, thumbnailStorageId: photo.thumbnailStorageId ?? null,
+        externalUrl: photo.externalUrl ?? null,
+        url: photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
+        thumbnailUrl: photo.thumbnailStorageId ? await ctx.storage.getUrl(photo.thumbnailStorageId) :
+          photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
+        variants: variantsWithUrls,
+      };
+    }));
     return {
       villaId: villa._id, status: villa.status, createdAt: villa._creationTime, updatedAt: villa.updatedAt,
       details: {
@@ -174,14 +191,16 @@ export const saveVillaEditor = mutation({
       });
     }
 
-    const childRows = await Promise.all([
+    const [childRows, existingPhotos] = await Promise.all([
+      Promise.all([
       ctx.db.query("specialRates").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).take(101),
-      ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).take(101),
       ctx.db.query("villaAmenities").withIndex("by_villaId", (q) => q.eq("villaId", villaId)).take(101),
       ctx.db.query("villaHouseRules").withIndex("by_villaId", (q) => q.eq("villaId", villaId)).take(101),
       ctx.db.query("sleepingArrangements").withIndex("by_villaId_and_bedroomNumber", (q) => q.eq("villaId", villaId)).take(51),
+      ]),
+      ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).take(101),
     ]);
-    if (childRows.some((rows) => rows.length > 100)) throw new Error("Villa content exceeds the supported editor limit / เนื้อหาวิลล่าเกินขีดจำกัดของตัวแก้ไข");
+    if (childRows.some((rows) => rows.length > 100) || existingPhotos.length > 100) throw new Error("Villa content exceeds the supported editor limit / เนื้อหาวิลล่าเกินขีดจำกัดของตัวแก้ไข");
     for (const rows of childRows) for (const row of rows) await ctx.db.delete(row._id);
     for (const [sortOrder, rate] of args.rates.entries()) {
       await ctx.db.insert("specialRates", {
@@ -192,11 +211,32 @@ export const saveVillaEditor = mutation({
         nightlyPriceThb: rate.nightlyPriceThb, sortOrder,
       });
     }
-    for (const [sortOrder, photo] of args.photos.entries())
-      await ctx.db.insert("villaPhotos", {
-        villaId, storageId: photo.storageId ?? undefined, thumbnailStorageId: photo.thumbnailStorageId ?? undefined,
+    const existingPhotoIds = new Set(existingPhotos.map((photo) => photo._id));
+    const keptPhotoIds = new Set<string>();
+    for (const [sortOrder, photo] of args.photos.entries()) {
+      const value = {
+        storageId: photo.storageId ?? undefined, thumbnailStorageId: photo.thumbnailStorageId ?? undefined,
         externalUrl: optionalString(photo.externalUrl), sortOrder,
-      });
+      };
+      const photoId = photo.photoId && existingPhotoIds.has(photo.photoId)
+        ? (await ctx.db.patch("villaPhotos", photo.photoId, value), photo.photoId)
+        : await ctx.db.insert("villaPhotos", { villaId, ...value });
+      keptPhotoIds.add(photoId);
+      for (const variant of photo.variants ?? []) {
+        const existingVariant = await ctx.db.query("villaPhotoVariants")
+          .withIndex("by_villaPhotoId_and_width", (q) => q.eq("villaPhotoId", photoId).eq("width", variant.width)).unique();
+        const variantValue = { storageId: variant.storageId, height: variant.height, byteSize: variant.byteSize, format: variant.format };
+        if (existingVariant) await ctx.db.patch("villaPhotoVariants", existingVariant._id, variantValue);
+        else await ctx.db.insert("villaPhotoVariants", { villaPhotoId: photoId, width: variant.width, ...variantValue });
+      }
+    }
+    for (const photo of existingPhotos) {
+      if (keptPhotoIds.has(photo._id)) continue;
+      const variants = await ctx.db.query("villaPhotoVariants")
+        .withIndex("by_villaPhotoId_and_width", (q) => q.eq("villaPhotoId", photo._id)).take(10);
+      for (const variant of variants) await ctx.db.delete("villaPhotoVariants", variant._id);
+      await ctx.db.delete("villaPhotos", photo._id);
+    }
     const amenityIds = new Set(args.amenityIds);
     for (const custom of args.customAmenities) {
       const slug = custom.slug.trim() || amenitySlug(custom.labelEn) || amenitySlug(custom.labelTh) || `custom-${custom.clientKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -240,7 +280,8 @@ export const cleanupUncommittedPhotoUploads = mutation({
     await requireAdmin(ctx);
     for (const storageId of args.storageIds) {
       const referenced = await ctx.db.query("villaPhotos").withIndex("by_storageId", (q) => q.eq("storageId", storageId)).first()
-        ?? await ctx.db.query("villaPhotos").withIndex("by_thumbnailStorageId", (q) => q.eq("thumbnailStorageId", storageId)).first();
+        ?? await ctx.db.query("villaPhotos").withIndex("by_thumbnailStorageId", (q) => q.eq("thumbnailStorageId", storageId)).first()
+        ?? await ctx.db.query("villaPhotoVariants").withIndex("by_storageId", (q) => q.eq("storageId", storageId)).first();
       if (!referenced) await ctx.storage.delete(storageId);
     }
     return null;

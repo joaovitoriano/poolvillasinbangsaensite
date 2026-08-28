@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { compressVillaImage, createVillaThumbnail } from "@/lib/villa-image-processing";
+import { createVillaImageVariants } from "@/lib/villa-image-processing";
 import { useAdminLocale } from "./AdminLocale";
 import { useAdminNavigationGuard } from "./AdminRouteShell";
 import { AdminButton, AdminNotice, AdminSkeleton, AdminStatusBadge, AdminToast, ConfirmDialog } from "./AdminUI";
@@ -125,26 +125,34 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   async function preparePhotos(photos: PhotoDraft[], uploadedIds: Id<"_storage">[]) {
     const next = [...photos];
     const jobs = photos.map((photo, index) => ({ photo, index })).filter((job) => job.photo.file);
-    let cursor = 0; let finished = 0;
-    const worker = async () => {
-      while (cursor < jobs.length) {
-        const job = jobs[cursor++];
-        setPhase("compressing");
-        const [full, thumb] = await Promise.all([compressVillaImage(job.photo.file!), createVillaThumbnail(job.photo.file!)]);
+    let finished = 0;
+    for (const job of jobs) {
+      const variants = [];
+      setPhase("compressing");
+      for await (const generated of createVillaImageVariants(job.photo.file!)) {
         setPhase("uploading");
-        const uploadTracked = async (file: File) => { const storageId = await upload(file); uploadedIds.push(storageId); return storageId; };
-        const uploads = await Promise.allSettled([uploadTracked(full), uploadTracked(thumb)]);
-        const failedUpload = uploads.find((result) => result.status === "rejected");
-        if (failedUpload?.status === "rejected") throw failedUpload.reason;
-        const storageId = (uploads[0] as PromiseFulfilledResult<Id<"_storage">>).value;
-        const thumbnailStorageId = (uploads[1] as PromiseFulfilledResult<Id<"_storage">>).value;
-        next[job.index] = { ...job.photo, storageId, thumbnailStorageId };
-        setProgress(++finished);
+        const storageId = await upload(generated.file);
+        uploadedIds.push(storageId);
+        variants.push({
+          storageId,
+          width: generated.width,
+          height: generated.height,
+          byteSize: generated.byteSize,
+          format: generated.format,
+        });
+        setPhase("compressing");
       }
-    };
-    const workers = await Promise.allSettled(Array.from({ length: Math.min(3, jobs.length) }, worker));
-    const failedWorker = workers.find((result) => result.status === "rejected");
-    if (failedWorker?.status === "rejected") throw failedWorker.reason;
+      const smallest = variants[0];
+      const largest = variants.at(-1);
+      if (!smallest || !largest) throw new Error("No responsive image variants were created");
+      next[job.index] = {
+        ...job.photo,
+        storageId: largest.storageId,
+        thumbnailStorageId: smallest.storageId,
+        variants,
+      };
+      setProgress(++finished);
+    }
     return next;
   }
 
@@ -172,7 +180,20 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
             amenityIds: nextDraft.amenityIds,
             rules: nextDraft.rules.map((rule) => ({ ruleId: rule.ruleId, clientKey: rule.key, textEn: rule.textEn, textTh: rule.textTh, icon: rule.icon || null })),
             sleeping: nextDraft.sleeping.map((room) => ({ sleepingId: room.sleepingId, clientKey: room.key, bedroomNumber: room.bedroomNumber, beds: room.beds })),
-            photos: preparedPhotos.map((photo) => ({ photoId: photo.photoId, clientKey: photo.key, storageId: photo.storageId ?? null, thumbnailStorageId: photo.thumbnailStorageId ?? null, externalUrl: photo.externalUrl?.trim() || null })),
+            photos: preparedPhotos.map((photo) => ({
+              photoId: photo.photoId,
+              clientKey: photo.key,
+              storageId: photo.storageId ?? null,
+              thumbnailStorageId: photo.thumbnailStorageId ?? null,
+              externalUrl: photo.externalUrl?.trim() || null,
+              variants: photo.variants?.map((variant) => ({
+                storageId: variant.storageId,
+                width: variant.width,
+                height: variant.height,
+                byteSize: variant.byteSize,
+                format: variant.format,
+              })) ?? [],
+            })),
             rates: nextDraft.rates.map((rate) => ({ rateId: rate.rateId, clientKey: rate.key, labelEn: rate.labelEn, labelTh: rate.labelTh, startDate: rate.startDate, endDate: rate.endDate, recurringDay: rate.recurringDay, nightlyPriceThb: rate.nightlyPriceThb })),
             customAmenities: nextDraft.customAmenities.map((item) => ({ clientKey: item.key, slug: item.slug, labelEn: item.labelEn, labelTh: item.labelTh, icon: item.icon || null })),
           });

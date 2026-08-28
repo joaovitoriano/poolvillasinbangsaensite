@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import {
   auditActionValidator,
   bedTypeValidator,
+  imageVariantFormatValidator,
   notificationChannelValidator,
   notificationLanguageValidator,
   notificationStatusValidator,
@@ -29,6 +30,13 @@ export default defineSchema({
     .index("by_villaId_and_sortOrder", ["villaId", "sortOrder"])
     .index("by_storageId", ["storageId"])
     .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
+
+  villaPhotoVariants: defineTable({
+    villaPhotoId: v.id("villaPhotos"), storageId: v.id("_storage"),
+    width: v.number(), height: v.number(), byteSize: v.number(), format: imageVariantFormatValidator,
+  })
+    .index("by_villaPhotoId_and_width", ["villaPhotoId", "width"])
+    .index("by_storageId", ["storageId"]),
 
   amenities: defineTable({ slug: v.string(), labelEn: v.string(), labelTh: v.string(), icon: v.optional(v.string()) })
     .index("by_slug", ["slug"]),

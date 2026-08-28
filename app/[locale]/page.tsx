@@ -36,6 +36,7 @@ export default async function Homepage({ params }: { params: Promise<{ locale: s
     bathrooms: villa.bathrooms,
     maxGuests: villa.maxGuests,
     mainPhotoUrl: villa.mainPhotoUrl,
+    mainPhoto: villa.mainPhoto,
     amenities: villa.amenities.map((amenity) => ({
       _id: amenity._id,
       slug: amenity.slug,

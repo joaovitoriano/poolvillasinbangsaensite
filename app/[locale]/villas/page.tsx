@@ -9,8 +9,8 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { ResponsiveImage } from "@/components/ResponsiveImage";
 import { formatNumericDateRange } from "@/lib/date-format";
-import { shouldBypassImageOptimization } from "@/lib/remote-image";
 import type { Metadata } from "next";
 
 type Search = {
@@ -363,14 +363,12 @@ export default async function VillasDirectory({
                         href={`/${locale}/villas/${villa.slug}${staySuffix ? `?${staySuffix}` : ""}`}
                       >
                         <div className="relative aspect-[4/3] overflow-hidden bg-[var(--paper-deep)]">
-                          {villa.mainPhotoUrl ? (
-                            <Image
-                              src={villa.mainPhotoUrl}
-                              unoptimized={shouldBypassImageOptimization(villa.mainPhotoUrl)}
+                          {villa.mainPhoto ? (
+                            <ResponsiveImage
+                              photo={villa.mainPhoto}
                               alt={name}
-                              fill
-                              sizes="(min-width:1280px) 28vw, (min-width:640px) 45vw, 100vw"
-                              className="object-cover transition duration-500 group-hover:scale-[1.025]"
+                              sizes="(min-width: 1280px) 300px, (min-width: 1024px) calc(33vw - 48px), (min-width: 640px) calc(50vw - 40px), calc(100vw - 40px)"
+                              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                             />
                           ) : null}
                           {searchedDates ? (

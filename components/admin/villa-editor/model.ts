@@ -37,6 +37,14 @@ export type RateDraft = {
 export type RuleDraft = { key: string; ruleId?: Id<"houseRules">; textEn: string; textTh: string; icon: string };
 export type BedType = "single" | "double" | "queen" | "king" | "bunk" | "sofa_bed" | "floor_mattress";
 export type SleepingDraft = { key: string; sleepingId?: Id<"sleepingArrangements">; bedroomNumber: number; beds: BedType[] };
+export type PhotoVariantDraft = {
+  storageId: Id<"_storage">;
+  width: number;
+  height: number;
+  byteSize: number;
+  format: "image/webp" | "image/jpeg" | "image/png" | "image/avif";
+  url?: string;
+};
 export type PhotoDraft = {
   key: string;
   photoId?: Id<"villaPhotos">;
@@ -45,6 +53,7 @@ export type PhotoDraft = {
   externalUrl?: string;
   url: string;
   thumbnailUrl?: string;
+  variants?: PhotoVariantDraft[];
   file?: File;
 };
 export type CustomAmenityDraft = { key: string; slug: string; labelEn: string; labelTh: string; icon: string };
@@ -112,7 +121,23 @@ export function detailToDraft(detail: VillaEditorDetail): VillaEditorDraft {
     amenityIds: detail.amenities.map((amenity) => amenity.amenityId), customAmenities: [],
     rules: detail.rules.map((rule) => ({ key: rule.clientKey, ruleId: rule.ruleId, textEn: rule.textEn, textTh: rule.textTh, icon: rule.icon ?? "other" })),
     sleeping: normalizeSleepingRooms(detail.sleeping.map((room) => ({ key: room.clientKey, sleepingId: room.sleepingId, bedroomNumber: room.bedroomNumber, beds: room.beds })), villa.bedrooms),
-    photos: detail.photos.map((photo) => ({ key: photo.clientKey, photoId: photo.photoId, storageId: photo.storageId ?? undefined, thumbnailStorageId: photo.thumbnailStorageId ?? undefined, externalUrl: photo.externalUrl ?? undefined, url: photo.url ?? photo.externalUrl ?? "", thumbnailUrl: photo.thumbnailUrl ?? photo.url ?? undefined })),
+    photos: detail.photos.map((photo) => ({
+      key: photo.clientKey,
+      photoId: photo.photoId,
+      storageId: photo.storageId ?? undefined,
+      thumbnailStorageId: photo.thumbnailStorageId ?? undefined,
+      externalUrl: photo.externalUrl ?? undefined,
+      url: photo.url ?? photo.externalUrl ?? "",
+      thumbnailUrl: photo.thumbnailUrl ?? photo.url ?? undefined,
+      variants: photo.variants.map((variant) => ({
+        storageId: variant.storageId,
+        width: variant.width,
+        height: variant.height,
+        byteSize: variant.byteSize,
+        format: variant.format,
+        url: variant.url,
+      })),
+    })),
   };
 }
 

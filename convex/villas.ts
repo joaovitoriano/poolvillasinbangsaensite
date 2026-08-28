@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import { relevantAvailabilityBlocks, relevantSpecialRates } from "./lib/boundedData";
 import { assertDateRange, dateInBangkok, rangesOverlap } from "./lib/dates";
@@ -12,36 +12,75 @@ import {
   villaPhotoDocumentValidator,
 } from "./lib/documentValidators";
 import { calculateQuote } from "./lib/pricing";
-import { localeValidator } from "./lib/validators";
+import { imageVariantFormatValidator, localeValidator } from "./lib/validators";
 
 const nullableStringValidator = v.union(v.null(), v.string());
+const photoVariantWithUrlValidator = v.object({
+  width: v.number(),
+  height: v.number(),
+  byteSize: v.number(),
+  format: imageVariantFormatValidator,
+  url: v.string(),
+});
+const responsivePhotoValidator = v.object({
+  url: nullableStringValidator,
+  variants: v.array(photoVariantWithUrlValidator),
+});
 const photoWithUrlsValidator = v.object({
   ...villaPhotoDocumentValidator.fields,
   url: nullableStringValidator,
   thumbnailUrl: nullableStringValidator,
+  variants: v.array(photoVariantWithUrlValidator),
 });
 const villaCardValidator = v.object({
   ...villaDocumentValidator.fields,
   available: v.boolean(),
   mainPhotoUrl: nullableStringValidator,
+  mainPhoto: v.union(v.null(), responsivePhotoValidator),
   amenities: v.array(amenityDocumentValidator),
 });
-const relatedVillaValidator = v.object({ ...villaDocumentValidator.fields, mainPhotoUrl: nullableStringValidator });
+const relatedVillaValidator = v.object({
+  ...villaDocumentValidator.fields,
+  mainPhotoUrl: nullableStringValidator,
+  mainPhoto: v.union(v.null(), responsivePhotoValidator),
+});
 const nightQuoteValidator = v.object({
   date: v.string(), priceThb: v.number(),
   rateKind: v.union(v.literal("weekday"), v.literal("weekend"), v.literal("special")),
   rateLabel: v.string(),
 });
 
-async function photosFor(ctx: QueryCtx, villaId: Id<"villas">) {
-  const photos = await ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).take(40);
-  return await Promise.all(photos.map(async (photo) => ({
+async function hydratePhoto(ctx: QueryCtx, photo: Doc<"villaPhotos">) {
+  const variantRows = await ctx.db.query("villaPhotoVariants")
+    .withIndex("by_villaPhotoId_and_width", (q) => q.eq("villaPhotoId", photo._id))
+    .take(10);
+  const variants = (await Promise.all(variantRows.map(async (variant) => {
+    const url = await ctx.storage.getUrl(variant.storageId);
+    return url ? { width: variant.width, height: variant.height, byteSize: variant.byteSize, format: variant.format, url } : null;
+  }))).filter((variant) => variant !== null).sort((a, b) => a.width - b.width);
+  const url = photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null;
+  return {
     ...photo,
-    url: photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
+    url,
     thumbnailUrl: photo.thumbnailStorageId
       ? await ctx.storage.getUrl(photo.thumbnailStorageId)
-      : photo.storageId ? await ctx.storage.getUrl(photo.storageId) : photo.externalUrl ?? null,
-  })));
+      : url,
+    variants,
+  };
+}
+
+async function photosFor(ctx: QueryCtx, villaId: Id<"villas">) {
+  const photos = await ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).take(40);
+  return await Promise.all(photos.map((photo) => hydratePhoto(ctx, photo)));
+}
+
+async function mainPhotoFor(ctx: QueryCtx, villaId: Id<"villas">) {
+  const photo = await ctx.db.query("villaPhotos").withIndex("by_villaId_and_sortOrder", (q) => q.eq("villaId", villaId)).first();
+  return photo ? await hydratePhoto(ctx, photo) : undefined;
+}
+
+function responsivePhoto(photo: Awaited<ReturnType<typeof photosFor>>[number] | undefined) {
+  return photo ? { url: photo.url, variants: photo.variants } : null;
 }
 
 async function amenitiesFor(ctx: QueryCtx, villaId: Id<"villas">) {
@@ -74,8 +113,14 @@ export const search = query({
       if (args.amenitySlugs?.length && !args.amenitySlugs.every((slug) => amenities.some((item) => item.slug === slug))) continue;
       const blocks = args.checkIn && args.checkOut ? await relevantAvailabilityBlocks(ctx, villa._id, args.checkIn, args.checkOut) : [];
       const available = !args.checkIn || !args.checkOut || !blocks.some((block) => rangesOverlap(args.checkIn!, args.checkOut!, block.startDate, block.endDate));
-      const photos = await photosFor(ctx, villa._id);
-      result.push({ ...villa, available, mainPhotoUrl: photos[0]?.url ?? null, amenities: amenities.slice(0, 8) });
+      const mainPhoto = await mainPhotoFor(ctx, villa._id);
+      result.push({
+        ...villa,
+        available,
+        mainPhotoUrl: mainPhoto?.url ?? null,
+        mainPhoto: responsivePhoto(mainPhoto),
+        amenities: amenities.slice(0, 8),
+      });
     }
     result.sort((a, b) => args.sort === "price_asc" ? a.weekdayPriceThb - b.weekdayPriceThb :
       args.sort === "price_desc" ? b.weekdayPriceThb - a.weekdayPriceThb :
@@ -111,7 +156,10 @@ export const getBySlug = query({
     const rules = (await Promise.all(ruleLinks.map((link) => ctx.db.get("houseRules", link.houseRuleId)))).filter((item) => item !== null);
     const relatedRows = (await ctx.db.query("villas").withIndex("by_status_and_sortOrder", (q) => q.eq("status", "published")).take(20))
       .filter((item) => item._id !== villa._id).slice(0, 3);
-    const related = await Promise.all(relatedRows.map(async (item) => ({ ...item, mainPhotoUrl: (await photosFor(ctx, item._id))[0]?.url ?? null })));
+    const related = await Promise.all(relatedRows.map(async (item) => {
+      const relatedPhoto = await mainPhotoFor(ctx, item._id);
+      return { ...item, mainPhotoUrl: relatedPhoto?.url ?? null, mainPhoto: responsivePhoto(relatedPhoto) };
+    }));
     return { ...villa, photos, sleeping, rules, amenities, rates, unavailable: blocks.map(({ startDate, endDate }) => ({ startDate, endDate })), related };
   },
 });

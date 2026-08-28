@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import {
   auditActionValidator,
   bedTypeValidator,
+  imageVariantFormatValidator,
   notificationChannelValidator,
   notificationStatusValidator,
   requestStatusValidator,
@@ -26,6 +27,11 @@ export const villaPhotoDocumentValidator = v.object({
   ...system("villaPhotos"), villaId: v.id("villas"),
   storageId: v.optional(v.id("_storage")), thumbnailStorageId: v.optional(v.id("_storage")),
   externalUrl: v.optional(v.string()), sortOrder: v.number(),
+});
+
+export const villaPhotoVariantDocumentValidator = v.object({
+  ...system("villaPhotoVariants"), villaPhotoId: v.id("villaPhotos"), storageId: v.id("_storage"),
+  width: v.number(), height: v.number(), byteSize: v.number(), format: imageVariantFormatValidator,
 });
 
 export const amenityDocumentValidator = v.object({

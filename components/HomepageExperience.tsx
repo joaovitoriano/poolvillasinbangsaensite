@@ -18,6 +18,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { ResponsiveImage, type ResponsivePhoto } from "@/components/ResponsiveImage";
 import { formatNumericDateRange } from "@/lib/date-format";
 import { shouldBypassImageOptimization } from "@/lib/remote-image";
 
@@ -32,6 +33,7 @@ export type HomepageVilla = {
   bathrooms: number;
   maxGuests: number;
   mainPhotoUrl: string | null;
+  mainPhoto: ResponsivePhoto | null;
   amenities: Array<{
     _id: string;
     slug: string;
@@ -329,7 +331,7 @@ function SmallStayCalendar({
   );
 }
 
-function RotatingHeroImage({ images, locale }: { images: string[]; locale: Locale }) {
+function RotatingHeroImage({ images, locale }: { images: ResponsivePhoto[]; locale: Locale }) {
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -343,25 +345,24 @@ function RotatingHeroImage({ images, locale }: { images: string[]; locale: Local
       data-home-hero-image
       className="relative order-first min-h-[310px] overflow-hidden bg-[var(--navy-deep)] sm:min-h-[420px] lg:order-none lg:min-h-[650px]"
     >
-      {images.map((src, index) => (
-        <Image
-          key={src}
-          src={src}
-          unoptimized={shouldBypassImageOptimization(src)}
+      {images.map((photo, index) => {
+        const distance = Math.min(Math.abs(index - active), images.length - Math.abs(index - active));
+        return distance <= 1 ? <ResponsiveImage
+          key={photo.url ?? photo.variants[0]?.url ?? index}
+          photo={photo}
           alt={locale === "th" ? "พูลวิลล่าในบางแสน" : "Pool villa in Bang Saen"}
-          fill
           priority={index === 0}
           sizes="(min-width:1024px) 50vw, 100vw"
-          className={`object-cover transition-opacity duration-1000 ${index === active ? "opacity-100" : "opacity-0"}`}
-        />
-      ))}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${index === active ? "opacity-100" : "opacity-0"}`}
+        /> : null;
+      })}
       <div className="absolute inset-0 bg-gradient-to-t from-[var(--navy-deep)]/45 via-transparent to-black/45" />
       <div className="absolute bottom-5 right-5 flex gap-1.5">
-        {images.map((src, index) => (
+        {images.map((photo, index) => (
           <button
-            key={src}
+            key={photo.url ?? photo.variants[0]?.url ?? index}
             type="button"
-            aria-label={`Show image ${index + 1}`}
+            aria-label={locale === "th" ? `แสดงรูปที่ ${index + 1}` : `Show image ${index + 1}`}
             onClick={() => setActive(index)}
             className={`h-1.5 transition-all ${index === active ? "w-8 bg-white" : "w-3 bg-white/45"}`}
           />
@@ -424,8 +425,12 @@ export function HomepageExperience({
   }, [hasMore, showMore]);
 
   const heroImages = useMemo(() => {
-    const villaImages = villas.map((villa) => villa.mainPhotoUrl).filter((url): url is string => Boolean(url));
-    return Array.from(new Set([...villaImages, "/home-hero/01.jpg", "/home-hero/06.jpg"])) .slice(0, 5);
+    const villaImages = villas.map((villa) => villa.mainPhoto).filter((photo): photo is ResponsivePhoto => Boolean(photo?.url || photo?.variants.length));
+    const candidates = [...villaImages, { url: "/home-hero/01.jpg", variants: [] }, { url: "/home-hero/06.jpg", variants: [] }];
+    return candidates.filter((photo, index) => {
+      const key = photo.url ?? photo.variants[0]?.url;
+      return candidates.findIndex((candidate) => (candidate.url ?? candidate.variants[0]?.url) === key) === index;
+    }).slice(0, 5);
   }, [villas]);
 
   const searchQuery = new URLSearchParams();
@@ -563,8 +568,8 @@ export function HomepageExperience({
                   <article key={villa._id} className="group min-w-0">
                     <Link href={`/${locale}/villas/${villa.slug}`} className="block overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-[0_12px_30px_rgba(0,19,38,.07)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,19,38,.11)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)]">
                       <div className="relative aspect-[4/3] overflow-hidden bg-[var(--paper-deep)]">
-                        {villa.mainPhotoUrl ? (
-                          <Image src={villa.mainPhotoUrl} alt={name} fill unoptimized={shouldBypassImageOptimization(villa.mainPhotoUrl)} sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw" className="object-cover transition duration-500 group-hover:scale-[1.025]" />
+                        {villa.mainPhoto ? (
+                          <ResponsiveImage photo={villa.mainPhoto} alt={name} sizes="(min-width: 1280px) 405px, (min-width: 1024px) calc(33vw - 40px), (min-width: 640px) calc(50vw - 32px), calc(100vw - 40px)" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
                         ) : null}
                       </div>
                       <div className="bg-white p-4">

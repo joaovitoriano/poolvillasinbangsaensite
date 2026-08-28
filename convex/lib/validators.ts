@@ -7,6 +7,12 @@ export const requestStatusValidator = v.union(v.literal("new"), v.literal("viewe
 export const notificationChannelValidator = v.union(v.literal("email"), v.literal("line"));
 export const notificationLanguageValidator = v.union(v.literal("en"), v.literal("th"));
 export const notificationStatusValidator = v.union(v.literal("pending"), v.literal("sent"), v.literal("failed"), v.literal("not_configured"));
+export const imageVariantFormatValidator = v.union(
+  v.literal("image/webp"),
+  v.literal("image/jpeg"),
+  v.literal("image/png"),
+  v.literal("image/avif"),
+);
 export const auditActionValidator = v.union(
   v.literal("create"), v.literal("update"), v.literal("publish"),
   v.literal("archive"), v.literal("view"), v.literal("sync"),

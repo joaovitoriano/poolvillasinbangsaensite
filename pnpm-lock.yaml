@@ -36,9 +36,6 @@ importers:
       '@workos-inc/authkit-nextjs':
         specifier: ^4.3.1
         version: 4.3.1(@workos-inc/node@10.10.0)(next@15.5.21(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
-      browser-image-compression:
-        specifier: ^2.0.2
-        version: 2.0.2
       convex:
         specifier: ^1.44.0
         version: 1.44.0(react@19.1.0)
@@ -60,6 +57,9 @@ importers:
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
+      sharp:
+        specifier: 0.35.0
+        version: 0.35.0
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3
@@ -1238,9 +1238,6 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
-  browser-image-compression@2.0.2:
-    resolution: {integrity: sha512-pBLlQyUf6yB8SmmngrcOw3EoS4RpQ1BcylI3T9Yqn7+4nrQTXJD4sJDe5ODnJdrvNMaio5OicFo75rDyJD2Ucw==}
-
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
     engines: {node: '>= 0.4'}
@@ -2416,9 +2413,6 @@ packages:
       '@types/react':
         optional: true
 
-  uzip@0.20201231.0:
-    resolution: {integrity: sha512-OZeJfZP+R0z9D6TmBgLq2LHzSSptGMGDGigGiEe0pr8UBe/7fdflgHlHBNDASTXB5jnFuxHpNaJywSg8YFeGng==}
-
   valibot@1.4.2:
     resolution: {integrity: sha512-gjdCvJ6d3RyHAneqxMYMW9QMCwYMb3jpOO0IyHZV1bnRHFBHrX3VkIILt5XYR0WhwHiH7Mty8ovuPZ/O3gamrg==}
     peerDependencies:
@@ -2685,8 +2679,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.35.0':
     optionalDependencies:
@@ -3454,10 +3447,6 @@ snapshots:
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
-
-  browser-image-compression@2.0.2:
-    dependencies:
-      uzip: 0.20201231.0
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
@@ -4651,7 +4640,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.0
       '@img/sharp-win32-ia32': 0.35.0
       '@img/sharp-win32-x64': 0.35.0
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:
@@ -4883,8 +4871,6 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.18
-
-  uzip@0.20201231.0: {}
 
   valibot@1.4.2(typescript@5.9.3):
     optionalDependencies:

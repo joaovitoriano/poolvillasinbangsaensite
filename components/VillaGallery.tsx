@@ -1,17 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { useEffect, useState } from "react";
-import { shouldBypassImageOptimization } from "@/lib/remote-image";
+import { ResponsiveImage, type ResponsiveImageVariant } from "@/components/ResponsiveImage";
 
-type Photo = { _id: string; url: string | null };
+type Photo = { _id: string; url: string | null; variants: ResponsiveImageVariant[] };
+
+function visibleWindow(active: number, count: number, size: number) {
+  const windowSize = Math.min(count, size);
+  const start = Math.max(0, Math.min(active - Math.floor(windowSize / 2), count - windowSize));
+  return new Set(Array.from({ length: windowSize }, (_, offset) => start + offset));
+}
 
 export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; locale: "en" | "th"; villaName: string }) {
   const usable = photos.filter((photo): photo is Photo & { url: string } => Boolean(photo.url));
   const [emblaRef, emblaApi] = useEmblaCarousel({ align: "start", containScroll: "trimSnaps", duration: 30, loop: false, skipSnaps: false });
   const [active, setActive] = useState(0);
+  const [windowSize, setWindowSize] = useState(3);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(usable.length > 1);
 
@@ -31,7 +37,18 @@ export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; l
     };
   }, [emblaApi]);
 
+  useEffect(() => {
+    const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void) => number; cancelIdleCallback?: (id: number) => void };
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(() => setWindowSize(5));
+      return () => idleWindow.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => setWindowSize(5), 800);
+    return () => window.clearTimeout(id);
+  }, []);
+
   if (!usable.length) return null;
+  const mounted = visibleWindow(active, usable.length, windowSize);
 
   return (
     <section className="bg-[var(--paper)] lg:px-8 lg:pt-7" aria-label={locale === "th" ? "แกลเลอรีรูปภาพวิลล่า" : "Villa photo gallery"}>
@@ -40,7 +57,7 @@ export function VillaGallery({ photos, locale, villaName }: { photos: Photo[]; l
           <div className="flex touch-pan-y">
             {usable.map((photo, index) => (
               <figure key={photo._id} className="relative aspect-[5/4] min-w-0 flex-[0_0_100%] sm:aspect-[4/3] lg:aspect-[16/7]">
-                <Image src={photo.url} unoptimized={shouldBypassImageOptimization(photo.url)} alt={locale === "th" ? `${villaName} รูปที่ ${index + 1} จาก ${usable.length}` : `${villaName}, photo ${index + 1} of ${usable.length}`} fill priority={index === 0} sizes="100vw" draggable={false} className="object-cover" />
+                {mounted.has(index) ? <ResponsiveImage photo={photo} alt={locale === "th" ? `${villaName} รูปที่ ${index + 1} จาก ${usable.length}` : `${villaName}, photo ${index + 1} of ${usable.length}`} priority={index === 0} sizes="(min-width: 1344px) 1280px, (min-width: 1024px) calc(100vw - 64px), 100vw" draggable={false} className="absolute inset-0 h-full w-full object-cover" /> : null}
               </figure>
             ))}
           </div>

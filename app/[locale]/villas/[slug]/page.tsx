@@ -13,8 +13,8 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { ResponsiveImage } from "@/components/ResponsiveImage";
 import { VillaBookingCalendar } from "@/components/VillaBookingCalendar";
-import { shouldBypassImageOptimization } from "@/lib/remote-image";
 import { VillaGallery } from "@/components/VillaGallery";
 import { AmenityIcon } from "@/lib/amenities";
 import { HouseRuleIcon } from "@/lib/house-rules";
@@ -316,14 +316,12 @@ export default async function VillaPage({ params, searchParams }: Props) {
                       className="group overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-[0_12px_30px_rgba(0,19,38,.07)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(0,19,38,.11)]"
                     >
                       <div className="relative aspect-[4/3] overflow-hidden bg-[var(--paper-deep)]">
-                        {item.mainPhotoUrl ? (
-                          <Image
-                            src={item.mainPhotoUrl}
-                            unoptimized={shouldBypassImageOptimization(item.mainPhotoUrl)}
+                        {item.mainPhoto ? (
+                          <ResponsiveImage
+                            photo={item.mainPhoto}
                             alt={relatedName}
-                            fill
-                            sizes="(min-width:1024px) 30vw, (min-width:640px) 45vw, 100vw"
-                            className="object-cover transition duration-500 group-hover:scale-[1.025]"
+                            sizes="(min-width: 1024px) 357px, (min-width: 640px) calc(50vw - 44px), calc(100vw - 40px)"
+                            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           />
                         ) : null}
                       </div>
