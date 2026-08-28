@@ -17,6 +17,15 @@ const BYTE_BUDGETS: Record<number, number> = {
 const REUSABLE_SOURCE_FORMATS = new Set(["image/webp", "image/jpeg", "image/png", "image/avif"] as const);
 type ReusableSourceFormat = "image/webp" | "image/jpeg" | "image/png" | "image/avif";
 
+function sourceFormat(blobType: string, sharpFormat?: string): ReusableSourceFormat | undefined {
+  if (REUSABLE_SOURCE_FORMATS.has(blobType as ReusableSourceFormat)) return blobType as ReusableSourceFormat;
+  if (sharpFormat === "jpeg") return "image/jpeg";
+  if (sharpFormat === "png") return "image/png";
+  if (sharpFormat === "webp") return "image/webp";
+  if (sharpFormat === "avif") return "image/avif";
+  return undefined;
+}
+
 type PhotoSource = {
   photoId: Id<"villaPhotos">;
   storageId?: Id<"_storage">;
@@ -80,26 +89,27 @@ async function processPhoto(
   const maximumWidth = Math.min(sourceWidth, TARGETS.at(-1)!);
   const widths = [...new Set([...TARGETS.filter((width) => width < maximumWidth), maximumWidth])];
   const existing = new Set(photo.existingWidths);
+  const reusableSourceFormat = sourceFormat(blob.type, metadata.format);
   const canReuseSource = Boolean(
     photo.storageId &&
     sourceWidth <= TARGETS.at(-1)! &&
-    REUSABLE_SOURCE_FORMATS.has(blob.type as ReusableSourceFormat),
+    reusableSourceFormat,
   );
   let created = 0;
   for (const width of widths) {
-    if (existing.has(width)) continue;
-    if (width === sourceWidth && canReuseSource && photo.storageId) {
+    if (width === sourceWidth && canReuseSource && photo.storageId && reusableSourceFormat) {
       await ctx.runMutation(internal.photoVariantBackfillData.recordVariant, {
         villaPhotoId: photo.photoId,
         storageId: photo.storageId,
         width: sourceWidth,
         height: sourceHeight,
         byteSize: blob.size,
-        format: blob.type as ReusableSourceFormat,
+        format: reusableSourceFormat,
       });
-      created += 1;
+      if (!existing.has(width)) created += 1;
       continue;
     }
+    if (existing.has(width)) continue;
     const budget = BYTE_BUDGETS[width] ?? Math.max(90_000, Math.round(width * 350));
     const output = await encodeVariant(input, width, budget);
     const storageId = await ctx.storage.store(new Blob([new Uint8Array(output.data)], { type: "image/webp" }));

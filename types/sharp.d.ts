@@ -1,5 +1,5 @@
 declare module "sharp" {
-  type Metadata = { width?: number; height?: number; autoOrient?: { width: number; height: number } };
+  type Metadata = { width?: number; height?: number; format?: string; autoOrient?: { width: number; height: number } };
   type OutputInfo = { width: number; height: number };
   type ResizeOptions = { width: number; withoutEnlargement?: boolean };
   type WebpOptions = { quality?: number; effort?: number };
