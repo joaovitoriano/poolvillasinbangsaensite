@@ -30,8 +30,6 @@ import type * as lib_notificationContent from "../lib/notificationContent.js";
 import type * as lib_pricing from "../lib/pricing.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as notifications from "../notifications.js";
-import type * as photoVariantBackfill from "../photoVariantBackfill.js";
-import type * as photoVariantBackfillData from "../photoVariantBackfillData.js";
 import type * as photoVariants from "../photoVariants.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
@@ -67,8 +65,6 @@ declare const fullApi: ApiFromModules<{
   "lib/pricing": typeof lib_pricing;
   "lib/validators": typeof lib_validators;
   notifications: typeof notifications;
-  photoVariantBackfill: typeof photoVariantBackfill;
-  photoVariantBackfillData: typeof photoVariantBackfillData;
   photoVariants: typeof photoVariants;
   seed: typeof seed;
   settings: typeof settings;
