@@ -17,6 +17,7 @@
     "@googlemaps/js-api-loader": "^2.1.1",
     "@radix-ui/react-popover": "^1.1.23",
     "@tabler/icons-react": "^3.46.0",
+    "@vercel/analytics": "^2.0.1",
     "@workos-inc/authkit-nextjs": "^4.3.1",
     "convex": "^1.44.0",
     "dompurify": "^3.4.14",

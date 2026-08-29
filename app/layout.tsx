@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans, IBM_Plex_Mono, Manrope } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { headers } from "next/headers";
 import { PwaRegistration } from "@/components/PwaRegistration";
@@ -38,5 +39,5 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const requestHeaders=await headers();const requestUrl=requestHeaders.get("x-url")??"";let pathname="";try{pathname=new URL(requestUrl).pathname}catch{pathname=requestUrl}const locale=(requestHeaders.get("x-site-locale")==="th"||pathname==="/th"||pathname.startsWith("/th/"))?"th":"en";
-  return <html lang={locale}><body className={`${display.variable} ${body.variable} ${mono.variable} ${price.variable}`}>{children}<PwaRegistration /></body></html>;
+  return <html lang={locale}><body className={`${display.variable} ${body.variable} ${mono.variable} ${price.variable}`}>{children}<PwaRegistration /><Analytics /></body></html>;
 }
