@@ -7,10 +7,9 @@ export const metadata: Metadata = {
   description: "Join our Facebook group to connect directly with Bang Saen villa managers and owners.",
   alternates: {
     canonical: "/facebookgroup",
-    languages: { en: "/facebookgroup", th: "/th/facebookgroup" },
   },
 };
 
 export default function FacebookGroupLandingPage() {
-  return <FacebookGroupPage locale="en" />;
+  return <FacebookGroupPage />;
 }
