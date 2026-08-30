@@ -21,6 +21,7 @@ const COPY = {
     imageAlt: "Private pool villa in Bang Saen",
     imageLabel: "Pool villa in Bang Saen",
     action: "Join our Facebook group",
+    viewVillas: "View pool villas",
   },
   th: {
     logoAlt: "พูลวิลล่าในบางแสน",
@@ -31,6 +32,7 @@ const COPY = {
     imageAlt: "พูลวิลล่าส่วนตัวในบางแสน",
     imageLabel: "พูลวิลล่าในบางแสน",
     action: "เข้าร่วมกลุ่ม Facebook ของเรา",
+    viewVillas: "ดูพูลวิลล่า",
   },
 } as const;
 
@@ -94,17 +96,25 @@ export async function FacebookGroupPage({ locale }: { locale: Locale }) {
           <div className="absolute inset-0 bg-[var(--navy-deep)]/10" aria-hidden="true" />
         </section>
 
-        <a
-          href={FACEBOOK_GROUP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group absolute left-1/2 top-1/2 z-20 flex min-h-20 w-[calc(100%_-_2.5rem)] max-w-[520px] -translate-x-1/2 -translate-y-1/2 items-center justify-between gap-5 rounded-2xl bg-[var(--terracotta)] px-6 py-5 text-base font-bold text-white shadow-[0_16px_40px_rgba(0,19,38,.28)] transition-colors hover:bg-[#aa664c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--navy-deep)] sm:min-h-24 sm:px-8 sm:text-lg"
-        >
-          <span>{copy.action}</span>
-          <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/30 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true">
-            <ArrowUpRight size={21} />
-          </span>
-        </a>
+        <div className="absolute left-1/2 top-1/2 z-20 w-[calc(100%_-_2.5rem)] max-w-[520px] -translate-x-1/2 -translate-y-1/2">
+          <a
+            href={FACEBOOK_GROUP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex min-h-20 w-full items-center justify-between gap-5 rounded-2xl bg-[var(--terracotta)] px-6 py-5 text-base font-bold text-white shadow-[0_16px_40px_rgba(0,19,38,.28)] transition-colors hover:bg-[#aa664c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--navy-deep)] sm:min-h-24 sm:px-8 sm:text-lg"
+          >
+            <span>{copy.action}</span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/30 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true">
+              <ArrowUpRight size={21} />
+            </span>
+          </a>
+          <Link
+            href="/th/villas"
+            className="absolute left-0 top-full mt-3 flex h-full min-h-20 w-full items-center justify-center rounded-2xl border-2 border-white bg-[var(--navy-deep)]/35 px-6 py-5 text-base font-bold text-white transition-colors hover:bg-[var(--navy-deep)]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-[var(--navy-deep)] sm:min-h-24 sm:px-8 sm:text-lg"
+          >
+            {copy.viewVillas}
+          </Link>
+        </div>
       </main>
       {lineUrl ? <LineContactButton href={lineUrl} locale={locale} /> : null}
     </>
