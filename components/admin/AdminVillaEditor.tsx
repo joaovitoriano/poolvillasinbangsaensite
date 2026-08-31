@@ -1,7 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowLeft, ExternalLink, Save } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
@@ -59,6 +59,8 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const [pendingStatus, setPendingStatus] = useState<LifecycleStatus | null>(null);
   const [conflict, setConflict] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [copyBusy, setCopyBusy] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const currentDraft = useRef(draft);
   const suppressUnload = useRef(false);
   currentDraft.current = draft;
@@ -66,6 +68,21 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
   const setDraft = useCallback((updater: (value: VillaEditorDraft) => VillaEditorDraft) => setDraftState(updater), []);
   const dirty = baseline !== null && draftFingerprint(draft) !== draftFingerprint(baseline);
   const saving = !["idle", "success", "error"].includes(phase);
+  const publicPath = villaId && detail?.details.slug ? `/${locale}/villas/${detail.details.slug}` : null;
+
+  async function copyPublicLink() {
+    if (!publicPath || copyBusy) return;
+    setCopyBusy(true);
+    setCopyFeedback(null);
+    try {
+      await navigator.clipboard.writeText(new URL(publicPath, window.location.origin).href);
+      setCopyFeedback({ tone: "success", text: copy("Villa link copied.", "คัดลอกลิงก์วิลล่าแล้ว") });
+    } catch {
+      setCopyFeedback({ tone: "error", text: copy("Could not copy the link. Open Public preview and copy the address.", "ไม่สามารถคัดลอกลิงก์ได้ โปรดเปิดดูตัวอย่างสาธารณะแล้วคัดลอกที่อยู่เว็บ") });
+    } finally {
+      setCopyBusy(false);
+    }
+  }
 
   const applyDetail = useCallback((nextDetail: VillaEditorDetail) => {
     currentDraft.current.photos.forEach((photo) => {
@@ -243,10 +260,14 @@ function VillaEditorWorkspace({ rawVillaId }: { rawVillaId?: string }) {
     <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-[#dbe0db] bg-white p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
       <div>{!villaId ? <button type="button" onClick={() => navigate("/admin/villas")} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0f6474] hover:underline"><ArrowLeft size={14} /> {copy("Back to villas", "กลับไปหน้าวิลล่า")}</button> : null}<div className={!villaId ? "mt-3 flex flex-wrap items-center gap-2" : "flex flex-wrap items-center gap-2"}><h2 className="font-serif text-2xl font-semibold text-[#001e33]">{villaId ? villaName || copy("Edit villa", "แก้ไขวิลล่า") : copy("Create a villa", "สร้างวิลล่า")}</h2><AdminStatusBadge tone={status === "published" ? "success" : status === "draft" ? "warning" : "neutral"}>{status === "published" ? copy("published", "เผยแพร่แล้ว") : status === "draft" ? copy("draft", "ฉบับร่าง") : copy("archived", "เก็บถาวร")}</AdminStatusBadge></div><p className="mt-1 text-xs text-[#68777a]">{copy(`${readyCount} of ${readiness.length} publishing essentials complete`, `ข้อมูลสำคัญพร้อมเผยแพร่ ${readyCount} จาก ${readiness.length} รายการ`)}</p></div>
       <div className="flex w-full flex-wrap gap-2 lg:w-auto">
-        {villaId && draft.villa.slug ? <a href={`/${locale}/villas/${draft.villa.slug}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#cfc8bc] px-4 text-sm font-semibold text-[#001e33] lg:w-auto"><ExternalLink size={14} /> {copy("Public preview", "ดูตัวอย่างสาธารณะ")}</a> : null}
+        {publicPath ? <div className="flex w-full items-center gap-2 lg:w-auto">
+          <a href={publicPath} target="_blank" rel="noreferrer" className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-[#cfc8bc] px-4 text-sm font-semibold text-[#001e33] transition-colors hover:border-[#0f6474] hover:bg-[#f5f8f7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c66f4e] focus-visible:ring-offset-2"><ExternalLink size={14} aria-hidden="true" /> {copy("Public preview", "ดูตัวอย่างสาธารณะ")}</a>
+          <AdminButton variant="secondary" busy={copyBusy} onClick={() => void copyPublicLink()} aria-label={copy("Copy villa link", "คัดลอกลิงก์วิลล่า")} title={copy("Copy villa link", "คัดลอกลิงก์วิลล่า")} className="size-11 shrink-0 px-0">{!copyBusy ? <Copy size={16} aria-hidden="true" /> : null}</AdminButton>
+        </div> : null}
         {villaId && status !== "published" ? <AdminButton variant="secondary" disabled={dirty || saving} onClick={() => setPendingStatus("published")}>{copy("Publish", "เผยแพร่")}</AdminButton> : null}
       </div>
     </div>
+    {copyFeedback ? <AdminToast tone={copyFeedback.tone}>{copyFeedback.text}</AdminToast> : null}
     {error ? <AdminToast tone="error" title={copy("Changes not saved", "ยังไม่ได้บันทึกการเปลี่ยนแปลง")}>{error}</AdminToast> : null}
     {phase === "success" ? <AdminToast tone="success" title={copy("Villa saved", "บันทึกวิลล่าแล้ว")}>{copy("Your villa changes are saved.", "บันทึกการเปลี่ยนแปลงของวิลล่าแล้ว")}</AdminToast> : null}
     <div role="tablist" aria-label={copy("Villa editor sections", "ส่วนแก้ไขวิลล่า")} className="mb-4 grid grid-cols-3 gap-1 rounded-xl border border-[#dbe0db] bg-[#fbfaf6]/95 p-1 backdrop-blur md:sticky md:top-3 md:z-10 md:flex">
