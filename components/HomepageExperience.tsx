@@ -21,6 +21,7 @@ import {
 import { preloadResponsiveImage, ResponsiveImage, type ResponsivePhoto } from "@/components/ResponsiveImage";
 import { formatNumericDateRange } from "@/lib/date-format";
 import { shouldBypassImageOptimization } from "@/lib/remote-image";
+import { LegalLinks } from "@/components/LegalLinks";
 
 export type HomepageVilla = {
   _id: string;
@@ -632,6 +633,7 @@ export function HomepageExperience({
           <Image src="/brand-logo-white.png" alt={locale === "th" ? "พูลวิลล่าในบางแสน" : "Pool Villas in Bangsaen"} width={220} height={44} className="h-auto w-[170px] shrink-0 sm:w-[190px]" />
           <p className="max-w-xl px-4 text-[11px] leading-5 text-white/55 sm:px-0 sm:text-xs">{t.footer}</p>
         </div>
+        <div className="mx-auto mt-4 max-w-[1280px] sm:pr-16"><LegalLinks locale={locale} /></div>
       </footer>
     </main>
   );

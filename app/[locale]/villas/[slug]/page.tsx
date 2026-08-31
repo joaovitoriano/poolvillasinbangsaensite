@@ -16,6 +16,7 @@ import { api } from "@/convex/_generated/api";
 import { ResponsiveImage } from "@/components/ResponsiveImage";
 import { VillaBookingCalendar } from "@/components/VillaBookingCalendar";
 import { VillaGallery } from "@/components/VillaGallery";
+import { LegalLinks } from "@/components/LegalLinks";
 import { AmenityIcon } from "@/lib/amenities";
 import { HouseRuleIcon } from "@/lib/house-rules";
 import { googleMapsEmbedUrl, googleMapsListingUrl } from "@/lib/google-maps";
@@ -356,6 +357,7 @@ export default async function VillaPage({ params, searchParams }: Props) {
             {t.footer}
           </p>
         </div>
+        <div className="mx-auto mt-4 max-w-[1120px] sm:pr-16"><LegalLinks locale={locale} /></div>
       </footer>
     </main>
   );
