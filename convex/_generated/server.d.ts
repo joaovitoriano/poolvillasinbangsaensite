@@ -33,7 +33,7 @@ type Env = {
   readonly CONVEX_SITE_URL: string | undefined;
   readonly GOOGLE_CLIENT_ID: string | undefined;
   readonly GOOGLE_CLIENT_SECRET: string | undefined;
-  readonly GOOGLE_REFRESH_TOKEN: string | undefined;
+  readonly GOOGLE_TOKEN_ENCRYPTION_KEY: string | undefined;
   readonly LINE_CHANNEL_ACCESS_TOKEN: string | undefined;
   readonly LINE_OWNER_USER_ID: string | undefined;
   readonly NOTIFICATION_FROM_EMAIL: string | undefined;

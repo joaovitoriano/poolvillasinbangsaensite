@@ -47,14 +47,18 @@ LINE_CHANNEL_ACCESS_TOKEN
 LINE_OWNER_USER_ID # optional fallback recipient; normally configured in Business settings
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
-GOOGLE_REFRESH_TOKEN
+GOOGLE_TOKEN_ENCRYPTION_KEY
 ```
 
 Administrator access is managed entirely in WorkOS. Assign the `admin` or `superadmin` role to the user's organization membership; Convex reads those signed role claims directly from the AuthKit access token.
 
 Email recipients and the LINE recipient user ID are managed in **Business settings**. Provider secrets stay in Convex environment variables and are never returned by public settings queries.
 
-Google OAuth only needs read access to Calendar events. Give each villa its Google Calendar ID in **Villas & rates → Details**, then enable synchronization in **Business settings**. Google Calendar change notifications trigger incremental synchronization, and a low-frequency reconciliation recovers missed notifications. Google Calendar is the sole source of availability: every event blocks its date range, and an event whose title contains the uppercase word `CLOSED` is shown as a closure instead of a booking. Synchronization never creates, edits, or deletes Google Calendar events.
+Set `GOOGLE_TOKEN_ENCRYPTION_KEY` to a securely generated 32-byte key encoded as base64, separately for each deployment. Keep it stable and backed up: replacing it makes saved Google credentials unreadable. Set Convex `PUBLIC_SITE_URL` and Next.js `NEXT_PUBLIC_SITE_URL` to the same site origin. Register that origin plus `/admin/integrations/google/callback` as an authorized redirect URI on the Google OAuth client (for example, `http://localhost:3000/admin/integrations/google/callback` locally).
+
+A superadmin connects the calendar account through **Integrations → Connect Google** and approves Google's read-only Calendar permission. The backend encrypts the refresh token and uses it automatically; OAuth Playground and a `GOOGLE_REFRESH_TOKEN` environment variable are no longer used. If access is revoked or expires, use **Reconnect Google**. Google consent is always completed by the account holder. After deploying this flow for the first time, connect once before expecting synchronization to work.
+
+Give each villa its Google Calendar ID in **Villas & rates → Details**, then enable synchronization in **Business settings**. The connected account must have access to every configured villa calendar. Google Calendar change notifications trigger incremental synchronization, and a low-frequency reconciliation recovers missed notifications. Google Calendar is the sole source of availability: every event blocks its date range, and an event whose title contains the uppercase word `CLOSED` is shown as a closure instead of a booking. Synchronization never creates, edits, or deletes Google Calendar events.
 
 ## Verification
 

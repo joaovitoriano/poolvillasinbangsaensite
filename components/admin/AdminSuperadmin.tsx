@@ -22,6 +22,7 @@ import {
 } from "./AdminUI";
 import { useAdminLocale } from "./AdminLocale";
 import { localizedInputValue } from "./localized-input";
+import { GoogleConnectionPanel } from "./GoogleConnectionPanel";
 
 export function AdminSuperadmin({ view, role }: { view: string; role: "admin" | "superadmin" }) {
   const { copy } = useAdminLocale();
@@ -173,6 +174,7 @@ function IntegrationsPanel() {
   return <div className="space-y-5">
     {message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}
     <div className="flex justify-end"><AdminButton busy={syncing} busyLabel={copy("Synchronizing…", "กำลังซิงค์…")} onClick={() => void run()}><RefreshCw size={15} /> {copy("Synchronize now", "ซิงค์ตอนนี้")}</AdminButton></div>
+    <GoogleConnectionPanel disabled={integrationDirty || integrationBusy || syncing} />
     <form key={integrationFormKey} onSubmit={saveIntegrationSettings} onChange={() => { setIntegrationDirty(true); setLineTestResult(null); setEmailTestResult(null); }} className="space-y-3">
       <AdminPanel>
         <AdminPanelHeader title={copy("Notification recipients", "ผู้รับการแจ้งเตือน")} detail={copy("New booking-request messages are sent to these destinations.", "ข้อความคำขอจองใหม่จะถูกส่งไปยังปลายทางเหล่านี้")} />

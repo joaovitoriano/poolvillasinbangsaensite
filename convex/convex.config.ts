@@ -10,7 +10,7 @@ const app = defineApp({
     LINE_OWNER_USER_ID: v.optional(v.string()),
     GOOGLE_CLIENT_ID: v.optional(v.string()),
     GOOGLE_CLIENT_SECRET: v.optional(v.string()),
-    GOOGLE_REFRESH_TOKEN: v.optional(v.string()),
+    GOOGLE_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
     CONVEX_SITE_URL: v.optional(v.string()),
     WORKOS_CLIENT_ID: v.string(),
     WORKOS_ORGANIZATION_ID: v.string(),

@@ -75,6 +75,16 @@ export default defineSchema({
     defaultSeoTitleEn: v.string(), defaultSeoTitleTh: v.string(), defaultSeoDescriptionEn: v.string(), defaultSeoDescriptionTh: v.string(),
   }),
   auditLogs: defineTable({ actorWorkosUserId: v.string(), action: auditActionValidator, entityType: v.string(), entityId: v.string() }),
+  googleOAuthConnections: defineTable({
+    provider: v.literal("google"),
+    encryptedRefreshToken: v.string(),
+    nonce: v.string(),
+    encryptionVersion: v.literal(1),
+    credentialVersion: v.string(),
+    connectedAt: v.number(),
+    connectedBy: v.string(),
+    status: v.union(v.literal("connected"), v.literal("reconnect_required")),
+  }).index("by_provider", ["provider"]),
   googleCalendarChannels: defineTable({
     villaId: v.id("villas"), calendarId: v.string(), channelId: v.string(), resourceId: v.optional(v.string()), channelToken: v.string(),
     status: v.union(v.literal("pending"), v.literal("active"), v.literal("error"), v.literal("stopped")),
