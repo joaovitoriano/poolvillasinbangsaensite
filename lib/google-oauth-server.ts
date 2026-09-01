@@ -96,7 +96,10 @@ export function matchesOAuthState(expected: string, received: string | null) {
 }
 
 export function oauthReturn(origin: string, result: GoogleOAuthError | "connected", locale: "en" | "th" = "en") {
-  const url = new URL("/admin/integrations", origin);
+  // The connection panel lives in Business settings; the OAuth API routes under
+  // /admin/integrations/google stay put because that redirect URI is registered
+  // on the Google OAuth client.
+  const url = new URL("/admin/settings", origin);
   url.searchParams.set("google", result);
   url.searchParams.set("lang", locale);
   const response = NextResponse.redirect(url, 303);

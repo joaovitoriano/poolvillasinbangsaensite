@@ -58,7 +58,7 @@ function BusinessSettingsPanel() {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : copy("Settings could not be saved.", "ไม่สามารถบันทึกการตั้งค่าได้") });
     } finally { setBusy(false); }
   }
-  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Public business details", "ข้อมูลธุรกิจสาธารณะ")} /><div className="grid gap-4 p-4 sm:p-5"><AdminField name="businessName" label={copy("Business name", "ชื่อธุรกิจ")} defaultValue={currentSettings.businessName} required /><AdminField name="phone" label={copy("Phone", "โทรศัพท์")} defaultValue={currentSettings.phone} required /><AdminField name="lineId" label="LINE ID" defaultValue={currentSettings.lineId} required /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
+  return <div className="space-y-4">{message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}<GoogleConnectionPanel /><form onSubmit={submit}><AdminPanel><AdminPanelHeader title={copy("Public business details", "ข้อมูลธุรกิจสาธารณะ")} /><div className="grid gap-4 p-4 sm:p-5"><AdminField name="businessName" label={copy("Business name", "ชื่อธุรกิจ")} defaultValue={currentSettings.businessName} required /><AdminField name="phone" label={copy("Phone", "โทรศัพท์")} defaultValue={currentSettings.phone} required /><AdminField name="lineId" label="LINE ID" defaultValue={currentSettings.lineId} required /></div><div className="flex justify-end border-t border-[#e8e2d8] p-4"><AdminButton type="submit" busy={busy} busyLabel={copy("Saving…", "กำลังบันทึก…")}><Save size={15} /> {copy("Save settings", "บันทึกการตั้งค่า")}</AdminButton></div></AdminPanel></form></div>;
 }
 
 function SettingsPanel() {
@@ -174,7 +174,6 @@ function IntegrationsPanel() {
   return <div className="space-y-5">
     {message ? <AdminToast tone={message.tone}>{message.text}</AdminToast> : null}
     <div className="flex justify-end"><AdminButton busy={syncing} busyLabel={copy("Synchronizing…", "กำลังซิงค์…")} onClick={() => void run()}><RefreshCw size={15} /> {copy("Synchronize now", "ซิงค์ตอนนี้")}</AdminButton></div>
-    <GoogleConnectionPanel disabled={integrationDirty || integrationBusy || syncing} />
     <form key={integrationFormKey} onSubmit={saveIntegrationSettings} onChange={() => { setIntegrationDirty(true); setLineTestResult(null); setEmailTestResult(null); }} className="space-y-3">
       <AdminPanel>
         <AdminPanelHeader title={copy("Notification recipients", "ผู้รับการแจ้งเตือน")} detail={copy("New booking-request messages are sent to these destinations.", "ข้อความคำขอจองใหม่จะถูกส่งไปยังปลายทางเหล่านี้")} />

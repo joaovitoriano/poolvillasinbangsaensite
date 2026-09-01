@@ -72,8 +72,8 @@ export async function requestGoogleToken(parameters: Record<string, string>): Pr
 export async function getAccessToken(ctx: ActionCtx): Promise<string> {
   const { clientId, clientSecret } = requireGoogleOAuthConfiguration();
   const connection = await ctx.runQuery(internal.googleOAuthData.getStoredConnection, {});
-  if (!connection) throw new Error("Connect Google in Integrations before syncing. / โปรดเชื่อมต่อ Google ในหน้าการเชื่อมต่อก่อนซิงค์");
-  if (connection.status === "reconnect_required") throw new Error("Google access has expired or been revoked. Reconnect Google in Integrations. / สิทธิ์การเข้าถึง Google หมดอายุหรือถูกเพิกถอน โปรดเชื่อมต่อ Google ใหม่ในหน้าการเชื่อมต่อ");
+  if (!connection) throw new Error("Connect Google in Business settings before syncing. / โปรดเชื่อมต่อ Google ในการตั้งค่าธุรกิจก่อนซิงค์");
+  if (connection.status === "reconnect_required") throw new Error("Google access has expired or been revoked. Reconnect Google in Business settings. / สิทธิ์การเข้าถึง Google หมดอายุหรือถูกเพิกถอน โปรดเชื่อมต่อ Google ใหม่ในการตั้งค่าธุรกิจ");
   const refreshToken = decryptRefreshToken(connection.encryptedRefreshToken, connection.nonce);
   const { ok, data } = await requestGoogleToken({
     client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token",
@@ -82,7 +82,7 @@ export async function getAccessToken(ctx: ActionCtx): Promise<string> {
     if (data.error === "invalid_grant") {
       const markedCurrent = await ctx.runMutation(internal.googleOAuthData.requireReconnect, { credentialVersion: connection.credentialVersion });
       if (!markedCurrent) throw new Error("Google connection changed during synchronization. Try syncing again. / การเชื่อมต่อ Google เปลี่ยนแปลงระหว่างการซิงค์ โปรดลองซิงค์อีกครั้ง");
-      throw new Error("Google access has expired or been revoked. Reconnect Google in Integrations. / สิทธิ์การเข้าถึง Google หมดอายุหรือถูกเพิกถอน โปรดเชื่อมต่อ Google ใหม่ในหน้าการเชื่อมต่อ");
+      throw new Error("Google access has expired or been revoked. Reconnect Google in Business settings. / สิทธิ์การเข้าถึง Google หมดอายุหรือถูกเพิกถอน โปรดเชื่อมต่อ Google ใหม่ในการตั้งค่าธุรกิจ");
     }
     if (data.error === "invalid_client" || data.error === "unauthorized_client") throw new ConvexError({ code: "GOOGLE_SETUP_REQUIRED" });
     throw new ConvexError({ code: "GOOGLE_AUTHORIZATION_FAILED" });

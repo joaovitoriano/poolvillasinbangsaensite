@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     if (!session.user || !session.accessToken || session.user.id !== attempt.userId || session.sessionId !== attempt.sessionId) {
       return oauthReturn(origin, "session_expired", attempt.locale);
     }
-    if (session.role !== "superadmin" && !session.roles?.includes("superadmin")) return oauthReturn(origin, "forbidden", attempt.locale);
+    if (session.role !== "admin" && session.role !== "superadmin" && !session.roles?.includes("admin") && !session.roles?.includes("superadmin")) return oauthReturn(origin, "forbidden", attempt.locale);
     const providerError = request.nextUrl.searchParams.get("error");
     if (providerError) return oauthReturn(origin, providerError === "access_denied" ? "cancelled" : "authorization_failed", attempt.locale);
     const code = request.nextUrl.searchParams.get("code");

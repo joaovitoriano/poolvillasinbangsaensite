@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
-import { requireSuperadmin } from "./lib/access";
+import { requireAdmin } from "./lib/access";
 import { GOOGLE_CALENDAR_SCOPE, requireGoogleOAuthConfiguration } from "./lib/googleOAuthConfig";
 import { encryptRefreshToken, requestGoogleToken } from "./lib/googleOAuthTokens";
 
@@ -12,7 +12,7 @@ export const completeAuthorization = action({
   args: { code: v.string(), codeVerifier: v.string(), redirectUri: v.string(), expectedConnectionVersion: v.union(v.string(), v.null()) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireSuperadmin(ctx);
+    await requireAdmin(ctx);
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "GOOGLE_AUTHORIZATION_INVALID" });
     const configuration = requireGoogleOAuthConfiguration();

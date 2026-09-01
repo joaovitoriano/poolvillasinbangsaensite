@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await withAuth();
     if (!session.user || !session.accessToken) return failure("session_expired", 401);
-    if (session.role !== "superadmin" && !session.roles?.includes("superadmin")) return failure("forbidden", 403);
+    if (session.role !== "admin" && session.role !== "superadmin" && !session.roles?.includes("admin") && !session.roles?.includes("superadmin")) return failure("forbidden", 403);
     const body: unknown = await request.json();
     if (!body || typeof body !== "object" || !("locale" in body) || (body.locale !== "en" && body.locale !== "th")) return failure("request_failed", 400);
     const config = await fetchQuery(api.googleOAuth.authorizationConfig, {}, { token: session.accessToken });

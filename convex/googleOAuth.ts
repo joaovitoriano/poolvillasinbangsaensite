@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireSuperadmin } from "./lib/access";
+import { requireAdmin } from "./lib/access";
 import { googleOAuthConfiguration, requireGoogleOAuthConfiguration } from "./lib/googleOAuthConfig";
 
 export const getConnectionStatus = query({
@@ -10,7 +10,7 @@ export const getConnectionStatus = query({
     connectedAt: v.optional(v.number()),
   }),
   handler: async (ctx) => {
-    await requireSuperadmin(ctx);
+    await requireAdmin(ctx);
     if (!googleOAuthConfiguration()) return { status: "setup_required" as const };
     const connection = await ctx.db.query("googleOAuthConnections").withIndex("by_provider", (q) => q.eq("provider", "google")).unique();
     if (!connection) return { status: "not_connected" as const };
@@ -22,7 +22,7 @@ export const authorizationConfig = query({
   args: {},
   returns: v.object({ clientId: v.string(), redirectUri: v.string(), connectionVersion: v.union(v.string(), v.null()) }),
   handler: async (ctx) => {
-    await requireSuperadmin(ctx);
+    await requireAdmin(ctx);
     const { clientId, redirectUri } = requireGoogleOAuthConfiguration();
     const connection = await ctx.db.query("googleOAuthConnections").withIndex("by_provider", (q) => q.eq("provider", "google")).unique();
     return { clientId, redirectUri, connectionVersion: connection?.credentialVersion ?? null };
