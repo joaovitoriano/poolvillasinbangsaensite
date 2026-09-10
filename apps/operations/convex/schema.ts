@@ -49,7 +49,8 @@ export default defineSchema({
     villaId: v.id("villas"),
     email: v.string(),
     role: v.union(v.literal("owner"), v.literal("agent")),
-    workosInvitationId: v.string(),
+    workosInvitationId: v.optional(v.string()),
+    verifiedWorkosUserId: v.optional(v.string()),
     status: v.union(
       v.literal("pending"),
       v.literal("accepted"),

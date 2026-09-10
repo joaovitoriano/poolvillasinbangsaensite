@@ -3,6 +3,7 @@
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Building2,
   CalendarDays,
   ChartNoAxesCombined,
@@ -64,7 +65,7 @@ function MobileBottomNavigation({ role, pathname, activeVilla }: { role: Operati
   const { t } = useLocale();
   const { outer, villa } = getNavigation(role, activeVilla);
   const items = activeVilla
-    ? [{ href: "/ops/villas", label: { en: "Villas", th: "วิลล่า" }, icon: Building2 }, ...villa]
+    ? [{ href: "/ops/villas", label: { en: "Go back", th: "ย้อนกลับ" }, icon: ArrowLeft }, ...villa]
     : outer;
 
   return (

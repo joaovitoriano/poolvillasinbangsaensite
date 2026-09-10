@@ -48,6 +48,8 @@ export const syncCurrent = mutation({
       .withIndex("by_email_and_status", (q) => q.eq("email", claims.email).eq("status", "pending"))
       .take(50);
     for (const invitation of invitations) {
+      if (invitation.verifiedWorkosUserId && invitation.verifiedWorkosUserId !== (await ctx.auth.getUserIdentity())?.subject) continue;
+      if (!invitation.verifiedWorkosUserId && invitation.createdAt + 14 * 86400000 <= now) { await ctx.db.patch(invitation._id, { status: "expired" }); continue; }
       const assignment = await ctx.db
         .query("villaAssignments")
         .withIndex("by_userId_and_villaId", (q) => q.eq("userId", userId).eq("villaId", invitation.villaId))

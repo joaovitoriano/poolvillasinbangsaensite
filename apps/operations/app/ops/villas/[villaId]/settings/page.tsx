@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 
 import {
@@ -261,7 +262,22 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
   const [role, setRole] = useState<"owner" | "agent">("agent");
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!changes.dirty) return; const form = event.currentTarget; const data = new FormData(form); await invite({ villaId, email: String(data.get("email")), role }); form.reset(); changes.saved(form, changes.capture(form)); toast.success(t({ en: `Invitation sent to ${String(data.get("email"))}.`, th: `ส่งคำเชิญไปยัง ${String(data.get("email"))} แล้ว` })); setDialogOpen(false); }
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const { localize } = useLocale();
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!changes.dirty || inviting) return;
+    const form = event.currentTarget, data = new FormData(form), email = String(data.get("email"));
+    setInviting(true); setInviteError("");
+    try {
+      const result = await invite({ villaId, email, role });
+      toast.success(t(result.status === "added" ? { en: `${email}: villa access added.`, th: `${email}: เพิ่มสิทธิ์เข้าถึงวิลล่าแล้ว` } : { en: `Invitation sent to ${email}.`, th: `ส่งคำเชิญไปยัง ${email} แล้ว` }));
+      form.reset(); changes.saved(form, changes.capture(form)); setDialogOpen(false);
+    } catch (error) {
+      setInviteError(error instanceof ConvexError ? localize(String(error.data)) : t({ en: "Could not add this person. Please try again.", th: "ไม่สามารถเพิ่มบุคคลนี้ได้ กรุณาลองอีกครั้ง" }));
+    } finally { setInviting(false); }
+  }
   return (
     <section className="grid gap-3">
       <header className="flex items-center justify-between gap-3">
@@ -275,7 +291,8 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
                 <div className="grid gap-1.5"><Label htmlFor="invite-email">{t({ en: "Email", th: "อีเมล" })}</Label><Input id="invite-email" name="email" type="email" required /></div>
                 <div className="grid gap-1.5"><Label>{t({ en: "Role", th: "บทบาท" })}</Label><Select value={role} onValueChange={(value) => setRole(value as "owner" | "agent")}><SelectTrigger className="w-full"><SelectValue>{t(role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</SelectValue></SelectTrigger><SelectContent><SelectItem value="owner">{t({ en: "Owner", th: "เจ้าของ" })}</SelectItem><SelectItem value="agent">{t({ en: "Agent", th: "เอเจนต์" })}</SelectItem></SelectContent></Select></div>
               </div>
-              <DialogFooter><Button className="w-full" type="submit" disabled={!changes.dirty}>{t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
+              {inviteError && <p role="alert" className="text-sm text-destructive">{inviteError}</p>}
+              <DialogFooter><Button className="w-full" type="submit" disabled={inviting || !changes.dirty}>{inviting ? t({ en: "Adding…", th: "กำลังเพิ่ม…" }) : t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -290,7 +307,7 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
         ))}
         {team?.invitations.map((invitation) => (
           <div key={invitation._id} className="flex min-w-0 items-center justify-between gap-3 px-3 py-3">
-            <div className="min-w-0"><p className="truncate font-medium">{invitation.email}</p><p className="truncate text-xs text-muted-foreground">{t({ en: "Invitation pending", th: "รอตอบรับคำเชิญ" })}</p></div>
+            <div className="min-w-0"><p className="truncate font-medium">{invitation.email}</p><p className="truncate text-xs text-muted-foreground">{t(invitation.verifiedWorkosUserId ? { en: "Access ready on sign-in", th: "พร้อมเข้าใช้งานเมื่อเข้าสู่ระบบ" } : { en: "Invitation pending", th: "รอตอบรับคำเชิญ" })}</p></div>
             <Badge className="shrink-0" variant="outline">{t(invitation.role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</Badge>
           </div>
         ))}
