@@ -42,7 +42,7 @@ export default function PersonalSettingsPage() {
     catch (error) { setMessage(error instanceof Error ? localize(error.message) : t({ en: "Could not save.", th: "ไม่สามารถบันทึกได้" })); }
     finally { setBusy(false); }
   }
-  return <PageFrame title={{ en: "Settings", th: "การตั้งค่า" }}><div className="flex min-h-[calc(100dvh-7.25rem-env(safe-area-inset-bottom))] flex-col gap-6">
+  return <PageFrame title={{ en: "Settings", th: "การตั้งค่า" }}><div className="flex min-h-[calc(100dvh-10.75rem-env(safe-area-inset-bottom))] flex-col gap-6">
     <h1 className="text-lg font-semibold">{t({ en: "Your account details", th: "ข้อมูลบัญชีของคุณ" })}</h1>
     {!user && <Skeleton className="h-64" />}
     {user && <form ref={changes.ref} onChange={changes.onChange} key={user._id} onSubmit={submit} className="grid gap-4">

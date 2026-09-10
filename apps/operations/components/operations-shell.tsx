@@ -60,6 +60,10 @@ function getNavigation(role: OperationsRole, activeVilla?: ActiveVilla) {
   return { outer, villa };
 }
 
+function isNavigationItemActive(pathname: string, item: NavItem) {
+  return pathname === item.href || (item.href !== "/ops/overview" && item.href !== "/ops/villas" && pathname.startsWith(`${item.href}/`));
+}
+
 function MobileBottomNavigation({ role, pathname, activeVilla }: { role: OperationsRole; pathname: string; activeVilla?: ActiveVilla }) {
   const { t } = useLocale();
   const { outer, villa } = getNavigation(role, activeVilla);
@@ -74,7 +78,7 @@ function MobileBottomNavigation({ role, pathname, activeVilla }: { role: Operati
     >
       <div className="mx-auto flex min-h-16 max-w-lg items-stretch px-1">
         {items.map((item) => {
-          const active = pathname === item.href || (item.href !== "/ops/overview" && item.href !== "/ops/villas" && pathname.startsWith(`${item.href}/`));
+          const active = isNavigationItemActive(pathname, item);
           const Icon = item.icon;
           return (
             <Link
@@ -131,6 +135,10 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
   if (isLoading || (isAuthenticated && (currentUser === undefined || villas === undefined))) return <LoadingShell />;
   if (unavailableVilla || !workosUser || !currentUser) return <LoadingShell />;
 
+  const role = activeVilla?.role ?? currentUser.role;
+  const navigation = getNavigation(role, activeVilla);
+  const currentPage = [...navigation.outer, ...navigation.villa].find((item) => isNavigationItemActive(pathname, item));
+  const headerTitle = currentPage ? t(currentPage.mobileLabel ?? currentPage.label) : t({ en: "Villa Operations", th: "จัดการวิลล่า" });
   const isCalendarRoute = /^\/ops\/villas\/[^/]+\/calendar\/?$/i.test(pathname);
   const isVillaFinancialsRoute = /^\/ops\/villas\/[^/]+\/financials\/?$/i.test(pathname);
   const mainClass = isCalendarRoute
@@ -142,9 +150,15 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-foreground">
       <div>
+        <header className="sticky top-0 z-20 flex h-14 items-center border-b bg-white/95 px-4 backdrop-blur">
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-sm font-semibold">{headerTitle}</p>
+            {activeVilla ? <p className="truncate text-[11px] text-muted-foreground">{activeVilla.name}</p> : null}
+          </div>
+        </header>
         <main key={`${currentUser._id}:${currentUser.role}`} className={mainClass}>{children}</main>
       </div>
-      <MobileBottomNavigation role={activeVilla?.role ?? currentUser.role} pathname={pathname} activeVilla={activeVilla} />
+      <MobileBottomNavigation role={role} pathname={pathname} activeVilla={activeVilla} />
     </div>
   );
 }
