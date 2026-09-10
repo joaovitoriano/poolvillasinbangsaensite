@@ -1,8 +1,9 @@
 "use client";
 
 import { Line, ComposedChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { useId, useMemo, useState } from "react";
-import { CalendarCheck2, CircleDollarSign, ReceiptText, WalletCards } from "lucide-react";
+import { useId, useMemo, useRef, useState } from "react";
+import { CalendarCheck2, ChevronLeft, ChevronRight, CircleDollarSign, ReceiptText, WalletCards } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useLocale, type Localized } from "@/components/locale-provider";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -45,9 +46,11 @@ function MobileMetric({ label, value }: { label: string; value: string | number 
   return <div className="min-w-0 rounded-sm border p-1 text-center"><p className="text-[9px] leading-4 text-muted-foreground">{label}</p><p className="whitespace-nowrap text-[10px] font-medium tabular-nums">{value}</p></div>;
 }
 
-export function FinancialDashboard({ data, portfolio = false, ownOnly = false }: { data?: DashboardData; portfolio?: boolean; ownOnly?: boolean }) {
+export function FinancialDashboard({ data, portfolio = false, ownOnly = false, paginationKey = "" }: { data?: DashboardData; portfolio?: boolean; ownOnly?: boolean; paginationKey?: string }) {
   const { locale, t, localize } = useLocale();
   const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
+  const [pagination, setPagination] = useState({ key: "", page: 1 });
+  const bookingTableRef = useRef<HTMLTableElement>(null);
   const [hiddenTrends, setHiddenTrends] = useState<TrendKey[]>([]);
   const [chartType, setChartType] = useState<"line" | "bar">("line");
   const [granularity, setGranularity] = useState<Granularity>("month");
@@ -98,6 +101,20 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
   const filteredBookings = (data?.bookings ?? []).filter((row) =>
     selectedCreators.length === 0 || selectedCreators.includes(row.createdByUserId),
   );
+  const pageKey = JSON.stringify([paginationKey, selectedCreators]);
+  const pageCount = Math.max(1, Math.ceil(filteredBookings.length / 30));
+  const currentPage = pagination.key === pageKey ? Math.min(pagination.page, pageCount) : 1;
+  if (pagination.key !== pageKey || pagination.page !== currentPage) {
+    setPagination({ key: pageKey, page: currentPage });
+  }
+  const pagedBookings = filteredBookings.slice((currentPage - 1) * 30, currentPage * 30);
+  const firstPage = Math.max(1, Math.min(currentPage - 2, pageCount - 4));
+  const pageNumbers = Array.from({ length: Math.min(5, pageCount) }, (_, index) => firstPage + index);
+  const changePage = (page: number) => {
+    setPagination({ key: pageKey, page });
+    bookingTableRef.current?.focus({ preventScroll: true });
+    bookingTableRef.current?.scrollIntoView({ block: "start" });
+  };
   const chartConfig = {
     villaNetThb: { label: t({ en: "Net revenue", th: "รายได้สุทธิ" }), color: financialColours.villaNetThb },
     commissionsThb: { label: t({ en: "Commissions", th: "ค่าคอมมิชชั่น" }), color: financialColours.commissionsThb },
@@ -233,7 +250,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
           {!data && <p className="text-xs text-muted-foreground" role="status">{t({ en: "Loading bookings…", th: "กำลังโหลดการจอง…" })}</p>}
           <div>
             <div className="-mx-4">
-              <table className="w-full table-fixed text-[10px] leading-4" aria-label={t({ en: "Booking financials", th: "การเงินของการจอง" })}>
+              <table ref={bookingTableRef} tabIndex={-1} className="w-full table-fixed text-[10px] leading-4 focus:outline-none" aria-label={t({ en: "Booking financials", th: "การเงินของการจอง" })}>
                 <colgroup>
                   <col style={{ width: ownOnly ? "28%" : "22%" }} />
                   <col style={{ width: ownOnly ? "25%" : "20%" }} />
@@ -251,7 +268,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filteredBookings.map((row) => (
+                  {pagedBookings.map((row) => (
                     <tr key={row._id} className={`${creatorColor(row.createdByUserId)} [&>td]:px-1 [&>td]:py-3 [&>td]:align-middle [&>td:first-child]:pl-4 [&>td:last-child]:pr-4`}>
                       <td><span className="block truncate font-medium" title={row.guestName}>{row.guestName}</span></td>
                       <td className="text-right tabular-nums break-all">{formatThb(row.accounting.chargedThb, locale)}</td>
@@ -264,6 +281,11 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
               </table>
             </div>
           </div>
+          {pageCount > 1 && <nav className="flex items-center justify-center gap-2 pt-3" aria-label={t({ en: "Booking pages", th: "หน้ารายการจอง" })}>
+            <Button type="button" variant="outline" size="icon-sm" className="size-8 rounded-sm" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)} aria-label={t({ en: "Previous page", th: "หน้าก่อนหน้า" })}><ChevronLeft /></Button>
+            {pageNumbers.map(number => <Button key={number} type="button" variant={number === currentPage ? "default" : "outline"} size="icon-sm" className="size-8 rounded-sm text-xs" aria-current={number === currentPage ? "page" : undefined} aria-label={t({ en: `Page ${number}`, th: `หน้า ${number}` })} onClick={() => changePage(number)}>{number}</Button>)}
+            <Button type="button" variant="outline" size="icon-sm" className="size-8 rounded-sm" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)} aria-label={t({ en: "Next page", th: "หน้าถัดไป" })}><ChevronRight /></Button>
+          </nav>}
           {data && filteredBookings.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{t({ en: "No bookings match these filters.", th: "ไม่พบการจองที่ตรงกับตัวกรอง" })}</p>}
         </div>
       ) : null}
