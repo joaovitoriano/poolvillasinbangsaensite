@@ -6,16 +6,15 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { FinancialDashboard } from "@/components/financial-dashboard";
 import { PageFrame } from "@/components/page-frame";
-import { currentYearRange } from "@/lib/format";
 import { useState } from "react";
-import { DateRangeFilter } from "@/components/date-range-filter";
+import { DateRangeFilter, financialQuickRange } from "@/components/date-range-filter";
 
 export default function VillaFinancialsPage() {
   const params = useParams<{ villaId: string }>();
   const villaId = params.villaId as Id<"villas">;
   const villa = useQuery(api.villas.get, { villaId });
   const user = useQuery(api.users.current);
-  const [range, setRange] = useState(() => { const range = currentYearRange(); return { ...range, to: `${range.from.slice(0, 4)}-12-31` }; });
+  const [range, setRange] = useState(() => financialQuickRange("year"));
   const valid = Boolean(range.from && range.to && range.to >= range.from);
   const toExclusive = valid ? new Date(Date.parse(`${range.to}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : "";
   const data = useQuery(api.financials.villa, user && villa && villa.role !== "agent" && valid ? { villaId, from: range.from, to: toExclusive } : "skip");
