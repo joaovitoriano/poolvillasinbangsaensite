@@ -23,14 +23,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { PageFrame } from "@/components/page-frame";
 import { useLocale } from "@/components/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
@@ -255,7 +255,21 @@ function PricingSettings({ villaId }: { villaId: Id<"villas"> }) {
 }
 
 function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
-  const changes = useFormChanges();
+  const user = useQuery(api.users.current);
+  const draftKey = user ? `villa-invite-email:${user._id}:${villaId}` : "";
+  const [emailDraft, setEmailDraft] = useState("");
+  useEffect(() => {
+    try { setEmailDraft(draftKey ? sessionStorage.getItem(draftKey) ?? "" : ""); } catch { setEmailDraft(""); }
+  }, [draftKey]);
+  function updateEmail(value: string) {
+    setEmailDraft(value);
+    try { if (draftKey) { if (value) sessionStorage.setItem(draftKey, value); else sessionStorage.removeItem(draftKey); } } catch { /* The in-memory draft still survives closing the dialog. */ }
+  }
+  const removeMember = useMutation(api.team.removeMember);
+  const cancelInvitation = useAction(api.invitations.cancel);
+  const [removal, setRemoval] = useState<{ kind: "member"; id: Id<"villaAssignments">; name: string } | { kind: "invitation"; id: Id<"villaInvitations">; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
   const { t } = useLocale();
   const team = useQuery(api.team.listForVilla, { villaId });
   const invite = useAction(api.invitations.send);
@@ -267,32 +281,44 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
   const { localize } = useLocale();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!changes.dirty || inviting) return;
+    if (!emailDraft.trim() || inviting) return;
     const form = event.currentTarget, data = new FormData(form), email = String(data.get("email"));
     setInviting(true); setInviteError("");
     try {
       const result = await invite({ villaId, email, role });
       toast.success(t(result.status === "added" ? { en: `${email}: villa access added.`, th: `${email}: เพิ่มสิทธิ์เข้าถึงวิลล่าแล้ว` } : { en: `Invitation sent to ${email}.`, th: `ส่งคำเชิญไปยัง ${email} แล้ว` }));
-      form.reset(); changes.saved(form, changes.capture(form)); setDialogOpen(false);
+      updateEmail(""); setDialogOpen(false);
     } catch (error) {
       setInviteError(error instanceof ConvexError ? localize(String(error.data)) : t({ en: "Could not add this person. Please try again.", th: "ไม่สามารถเพิ่มบุคคลนี้ได้ กรุณาลองอีกครั้ง" }));
     } finally { setInviting(false); }
+  }
+  async function confirmRemoval() {
+    if (!removal || removing) return;
+    setRemoving(true); setRemoveError("");
+    try {
+      if (removal.kind === "member") await removeMember({ assignmentId: removal.id });
+      else await cancelInvitation({ invitationId: removal.id });
+      toast.success(t(removal.kind === "member" ? { en: `${removal.name}: removed from villa.`, th: `${removal.name}: ลบออกจากวิลล่าแล้ว` } : { en: `${removal.name}: invitation cancelled.`, th: `${removal.name}: ยกเลิกคำเชิญแล้ว` }));
+      setRemoval(null);
+    } catch (error) {
+      setRemoveError(error instanceof ConvexError ? localize(String(error.data)) : t({ en: "Could not complete the request. Please try again.", th: "ไม่สามารถดำเนินการได้ กรุณาลองอีกครั้ง" }));
+    } finally { setRemoving(false); }
   }
   return (
     <section className="grid gap-3">
       <header className="flex items-center justify-between gap-3">
         <h2 className="text-base font-medium">{t({ en: "Villa team", th: "ทีมวิลล่า" })}</h2>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!inviting) { setDialogOpen(open); setInviteError(""); } }}>
           <DialogTrigger render={<Button size="sm" />}>{t({ en: "Invite", th: "เชิญ" })}</DialogTrigger>
           <DialogContent>
-            <form ref={changes.ref} onChange={changes.onChange} onSubmit={submit} className="flex flex-col gap-4">
+            <form onSubmit={submit} className="flex flex-col gap-4">
               <DialogHeader><DialogTitle>{t({ en: "Invite to villa", th: "เชิญเข้าวิลล่า" })}</DialogTitle></DialogHeader>
               <div className="grid gap-3">
-                <div className="grid gap-1.5"><Label htmlFor="invite-email">{t({ en: "Email", th: "อีเมล" })}</Label><Input id="invite-email" name="email" type="email" required /></div>
-                <div className="grid gap-1.5"><Label>{t({ en: "Role", th: "บทบาท" })}</Label><Select value={role} onValueChange={(value) => setRole(value as "owner" | "agent")}><SelectTrigger className="w-full"><SelectValue>{t(role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</SelectValue></SelectTrigger><SelectContent><SelectItem value="owner">{t({ en: "Owner", th: "เจ้าของ" })}</SelectItem><SelectItem value="agent">{t({ en: "Agent", th: "เอเจนต์" })}</SelectItem></SelectContent></Select></div>
+                <div className="grid gap-1.5"><Label htmlFor="invite-email">{t({ en: "Email", th: "อีเมล" })}</Label><Input id="invite-email" name="email" type="email" required disabled={inviting} value={emailDraft} onChange={event => updateEmail(event.target.value)} /></div>
+                <div className="grid gap-1.5"><Label>{t({ en: "Role", th: "บทบาท" })}</Label><Select disabled={inviting} value={role} onValueChange={(value) => setRole(value as "owner" | "agent")}><SelectTrigger className="w-full"><SelectValue>{t(role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</SelectValue></SelectTrigger><SelectContent><SelectItem value="owner">{t({ en: "Owner", th: "เจ้าของ" })}</SelectItem><SelectItem value="agent">{t({ en: "Agent", th: "เอเจนต์" })}</SelectItem></SelectContent></Select></div>
               </div>
               {inviteError && <p role="alert" className="text-sm text-destructive">{inviteError}</p>}
-              <DialogFooter><Button className="w-full" type="submit" disabled={inviting || !changes.dirty}>{inviting ? t({ en: "Adding…", th: "กำลังเพิ่ม…" }) : t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
+              <DialogFooter><Button className="w-full" type="submit" disabled={inviting || !emailDraft.trim()}>{inviting ? t({ en: "Adding…", th: "กำลังเพิ่ม…" }) : t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -302,17 +328,26 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
         {team?.members.map((member) => (
           <div key={member._id} className="flex min-w-0 items-center justify-between gap-3 px-3 py-3">
             <div className="min-w-0"><p className="truncate font-medium">{member.user?.name ?? member.user?.email}</p><p className="truncate text-xs text-muted-foreground">{member.user?.email}</p>{member.user?.phone && <p className="text-xs text-muted-foreground">{member.user.phone}</p>}{member.user?.lineId && <p className="text-xs text-muted-foreground">{t({ en: "LINE ID", th: "ไลน์ไอดี" })}: {member.user.lineId}</p>}</div>
-            <Badge className="shrink-0" variant="secondary">{t(member.role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</Badge>
+            <div className="flex shrink-0 items-center gap-1"><Badge className="shrink-0" variant="secondary">{t(member.role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</Badge><Button type="button" variant="ghost" size="icon-sm" aria-label={t({ en: `Remove ${member.user?.name ?? member.user?.email} from villa`, th: `ลบ ${member.user?.name ?? member.user?.email} ออกจากวิลล่า` })} onClick={() => { setRemoveError(""); setRemoval({ kind: "member", id: member._id, name: member.user?.name ?? member.user?.email ?? "" }); }}><Trash2 aria-hidden="true" /></Button></div>
           </div>
         ))}
         {team?.invitations.map((invitation) => (
           <div key={invitation._id} className="flex min-w-0 items-center justify-between gap-3 px-3 py-3">
             <div className="min-w-0"><p className="truncate font-medium">{invitation.email}</p><p className="truncate text-xs text-muted-foreground">{t(invitation.verifiedWorkosUserId ? { en: "Access ready on sign-in", th: "พร้อมเข้าใช้งานเมื่อเข้าสู่ระบบ" } : { en: "Invitation pending", th: "รอตอบรับคำเชิญ" })}</p></div>
-            <Badge className="shrink-0" variant="outline">{t(invitation.role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</Badge>
+            <div className="flex shrink-0 items-center gap-1"><Badge className="shrink-0" variant="outline">{t(invitation.role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</Badge><Button type="button" variant="ghost" size="icon-sm" aria-label={t({ en: `Cancel invitation for ${invitation.email}`, th: `ยกเลิกคำเชิญสำหรับ ${invitation.email}` })} onClick={() => { setRemoveError(""); setRemoval({ kind: "invitation", id: invitation._id, name: invitation.email }); }}><Trash2 aria-hidden="true" /></Button></div>
           </div>
         ))}
         {team?.members.length === 0 && team.invitations.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted-foreground">{t({ en: "No team members yet.", th: "ยังไม่มีสมาชิกทีม" })}</p>}
       </div>
+      <Dialog open={removal !== null} onOpenChange={open => { if (!open && !removing) setRemoval(null); }}>
+        <DialogContent role="alertdialog" showCloseButton={!removing}>
+          <DialogHeader><DialogTitle>{t({ en: "Are you sure?", th: "คุณแน่ใจหรือไม่?" })}</DialogTitle>
+            <DialogDescription>{t(removal?.kind === "member" ? { en: `You want to remove ${removal.name}? Their data will still stay on this villa.`, th: `ต้องการลบ ${removal.name} หรือไม่? ข้อมูลของบุคคลนี้จะยังคงอยู่ในวิลล่านี้` } : { en: `Cancel the invitation for ${removal?.name ?? ""}? It will no longer grant access to this villa.`, th: `ยกเลิกคำเชิญสำหรับ ${removal?.name ?? ""} หรือไม่? คำเชิญนี้จะไม่ให้สิทธิ์เข้าถึงวิลล่านี้อีกต่อไป` })}</DialogDescription>
+          </DialogHeader>
+          {removeError && <p role="alert" className="text-sm text-destructive">{removeError}</p>}
+          <DialogFooter><Button type="button" variant="outline" autoFocus disabled={removing} onClick={() => setRemoval(null)}>{t({ en: "Keep", th: "เก็บไว้" })}</Button><Button type="button" variant="destructive" disabled={removing} onClick={confirmRemoval}>{t(removing ? { en: "Removing…", th: "กำลังลบ…" } : removal?.kind === "member" ? { en: "Remove member", th: "ลบสมาชิก" } : { en: "Cancel invitation", th: "ยกเลิกคำเชิญ" })}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

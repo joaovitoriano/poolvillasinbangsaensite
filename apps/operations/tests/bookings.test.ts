@@ -73,7 +73,7 @@ describe("access control and privacy", () => {
     await expect(caller.query(api.villas.get, { villaId: f.secondVilla })).rejects.toThrow();
     await expect(caller.query(api.calendar.range, { villaId: f.secondVilla, from: "2030-09-01", to: "2030-10-01" })).rejects.toThrow();
     await expect(caller.mutation(api.bookings.create, { ...booking, villaId: f.secondVilla })).rejects.toThrow();
-    await expect(caller.query(api.activity.list, { paginationOpts: { numItems: 20, cursor: null } })).rejects.toThrow();
+    await expect(caller.query(api.activity.list, { page: 1 })).rejects.toThrow();
     await expect(caller.query(api.team.listForVilla, { villaId: f.villaId })).rejects.toThrow();
     await expect(caller.mutation(api.villas.create, f.villaData)).rejects.toThrow();
   });

@@ -12,6 +12,7 @@ export default defineSchema({
     role: v.union(v.literal("admin"), v.literal("owner"), v.literal("agent")),
     permissions: v.array(v.string()),
     active: v.boolean(),
+    accountMode: v.optional(v.union(v.literal("owner"), v.literal("agent"))),
     lastSeenAt: v.number(),
   })
     .index("by_workosUserId", ["workosUserId"])

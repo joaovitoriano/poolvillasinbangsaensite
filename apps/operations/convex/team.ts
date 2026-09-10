@@ -1,4 +1,4 @@
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { permissions, requirePermission, requireUser } from "./lib/auth";
 import { activityContext } from "./lib/activity";
@@ -85,3 +85,50 @@ async function assertNotAssigned(ctx: import("./_generated/server").QueryCtx, vi
   const pending = await ctx.db.query("villaInvitations").withIndex("by_email_and_status", q => q.eq("email", email).eq("status", "pending")).collect();
   if (pending.some(row => row.villaId === villaId && (row.verifiedWorkosUserId || row.createdAt + 14 * 86400000 > Date.now()))) throw new ConvexError("Access or an invitation is already pending for this villa / มีสิทธิ์หรือคำเชิญที่รอดำเนินการสำหรับวิลล่านี้แล้ว");
 }
+
+async function requireTeamAdmin(ctx: import("./_generated/server").QueryCtx) {
+  const user = await requireUser(ctx);
+  requirePermission(user, permissions.teamManage);
+  if (user.role !== "admin") throw new ConvexError("Admin access required / เฉพาะผู้ดูแลเท่านั้น");
+  return user;
+}
+
+export const removeMember = mutation({
+  args: { assignmentId: v.id("villaAssignments") },
+  returns: v.null(),
+  handler: async (ctx, { assignmentId }) => {
+    const actor = await requireTeamAdmin(ctx);
+    const assignment = await ctx.db.get(assignmentId);
+    if (!assignment) return null;
+    ctx = activityContext(ctx, actor, assignment.villaId);
+    await ctx.db.delete(assignmentId);
+    return null;
+  },
+});
+
+export const cancellationContext = internalQuery({
+  args: { invitationId: v.id("villaInvitations") },
+  returns: v.object({ workosInvitationId: v.optional(v.string()), pending: v.boolean() }),
+  handler: async (ctx, { invitationId }) => {
+    await requireTeamAdmin(ctx);
+    const invitation = await ctx.db.get(invitationId);
+    if (!invitation) throw new ConvexError("Invitation not found / ไม่พบคำเชิญ");
+    if (invitation.status === "accepted") throw new ConvexError("This invitation has been accepted. Remove the member from the villa instead / คำเชิญนี้ได้รับการตอบรับแล้ว กรุณาลบสมาชิกออกจากวิลล่าแทน");
+    return { workosInvitationId: invitation.workosInvitationId, pending: invitation.status === "pending" };
+  },
+});
+
+export const markInvitationCancelled = internalMutation({
+  args: { invitationId: v.id("villaInvitations") },
+  returns: v.null(),
+  handler: async (ctx, { invitationId }) => {
+    const actor = await requireTeamAdmin(ctx);
+    const invitation = await ctx.db.get(invitationId);
+    if (!invitation) throw new ConvexError("Invitation not found / ไม่พบคำเชิญ");
+    if (invitation.status === "accepted") throw new ConvexError("This invitation has been accepted. Remove the member from the villa instead / คำเชิญนี้ได้รับการตอบรับแล้ว กรุณาลบสมาชิกออกจากวิลล่าแทน");
+    if (invitation.status !== "pending") return null;
+    ctx = activityContext(ctx, actor, invitation.villaId);
+    await ctx.db.patch(invitationId, { status: "revoked" });
+    return null;
+  },
+});

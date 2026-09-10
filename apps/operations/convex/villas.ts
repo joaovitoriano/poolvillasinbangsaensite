@@ -11,6 +11,7 @@ const villaSummary = v.object({
   contactLineId: v.string(),
   contactPhone: v.string(),
   archived: v.boolean(),
+  role: v.union(v.literal("admin"), v.literal("owner"), v.literal("agent")),
 });
 
 export const listAccessible = query({
@@ -19,6 +20,7 @@ export const listAccessible = query({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     let villas;
+    const assignedRoles = new Map<string, "owner" | "agent">();
     if (user.role === "admin") {
       villas = args.includeArchived
         ? await ctx.db.query("villas").order("desc").take(200)
@@ -28,7 +30,8 @@ export const listAccessible = query({
         .query("villaAssignments")
         .withIndex("by_userId_and_villaId", (q) => q.eq("userId", user._id))
         .take(200);
-      villas = (await Promise.all(assignments.map((assignment) => ctx.db.get(assignment.villaId)))).filter(
+      for (const assignment of assignments.filter(row => row.role === user.role)) assignedRoles.set(assignment.villaId, assignment.role);
+      villas = (await Promise.all(assignments.filter(row => row.role === user.role).map((assignment) => ctx.db.get(assignment.villaId)))).filter(
         (villa): villa is Doc<"villas"> => villa !== null && (args.includeArchived || !villa.archived),
       );
     }
@@ -40,6 +43,7 @@ export const listAccessible = query({
         contactLineId: villa.contactLineId,
         contactPhone: villa.contactPhone,
         archived: villa.archived,
+        role: user.role === "admin" ? "admin" as const : assignedRoles.get(villa._id)!,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   },
@@ -50,7 +54,7 @@ export const get = query({
   returns: v.union(v.null(), villaSummary),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await requireVillaAccess(ctx, user, args.villaId);
+    const role = await requireVillaAccess(ctx, user, args.villaId);
     const villa = await ctx.db.get(args.villaId);
     if (!villa) return null;
     return {
@@ -60,6 +64,7 @@ export const get = query({
       contactLineId: villa.contactLineId,
       contactPhone: villa.contactPhone,
       archived: villa.archived,
+      role,
     };
   },
 });

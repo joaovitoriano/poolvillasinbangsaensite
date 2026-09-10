@@ -59,14 +59,20 @@ export async function identityClaims(ctx: Ctx) {
   };
 }
 
-export async function requireUser(ctx: Ctx): Promise<Doc<"operationsUsers">> {
+export async function requireUser(ctx: Ctx): Promise<Doc<"operationsUsers"> & { availableRoles: ("owner" | "agent")[] }> {
   const claims = await identityClaims(ctx);
   const user = await ctx.db
     .query("operationsUsers")
     .withIndex("by_workosUserId", (q) => q.eq("workosUserId", claims.workosUserId))
     .unique();
   if (!user || !user.active) throw new Error("Operations profile is not active / โปรไฟล์ระบบจัดการยังไม่เปิดใช้งาน");
-  return user;
+  if (claims.role === "admin") return { ...user, role: "admin", permissions: claims.permissions, availableRoles: [] };
+  const assignments = await ctx.db.query("villaAssignments").withIndex("by_userId_and_villaId", q => q.eq("userId", user._id)).take(201);
+  if (assignments.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
+  const availableRoles = (["owner", "agent"] as const).filter(role => assignments.some(row => row.role === role));
+  const role = user.accountMode && availableRoles.includes(user.accountMode) ? user.accountMode : (availableRoles.includes("agent") ? "agent" : availableRoles[0]) ?? "agent";
+  const scopedPermissions = [permissions.villasReadAssigned, permissions.bookingsCreate, permissions.bookingsUpdateOwn, ...(role === "owner" ? [permissions.bookingsReadAssigned, permissions.financialsReadVilla] : [permissions.bookingsReadOwn, permissions.financialsReadOwnForVilla])];
+  return { ...user, role, permissions: scopedPermissions, availableRoles };
 }
 
 export function requirePermission(user: Doc<"operationsUsers">, permission: string) {
@@ -74,12 +80,13 @@ export function requirePermission(user: Doc<"operationsUsers">, permission: stri
 }
 
 export async function requireVillaAccess(ctx: Ctx, user: Doc<"operationsUsers">, villaId: Id<"villas">) {
-  if (user.role === "admin") return;
+  if (user.role === "admin") return "admin" as const;
   const assignment = await ctx.db
     .query("villaAssignments")
     .withIndex("by_userId_and_villaId", (q) => q.eq("userId", user._id).eq("villaId", villaId))
     .unique();
-  if (!assignment) throw new Error("Villa access denied / ไม่มีสิทธิ์เข้าถึงวิลล่านี้");
+  if (!assignment || assignment.role !== user.role) throw new Error("Villa access denied / ไม่มีสิทธิ์เข้าถึงวิลล่านี้");
+  return assignment.role;
 }
 
 export async function canEditBooking(ctx: Ctx, user: Doc<"operationsUsers">, booking: Doc<"bookings">) {

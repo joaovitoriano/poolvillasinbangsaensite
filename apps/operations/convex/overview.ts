@@ -14,7 +14,7 @@ export const get = query({
     else {
       const assigned = await ctx.db.query("villaAssignments").withIndex("by_userId_and_villaId", q => q.eq("userId", user._id)).take(201);
       if (assigned.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
-      villas = (await Promise.all(assigned.map(a => ctx.db.get(a.villaId)))).filter((villa): villa is Doc<"villas"> => villa !== null);
+      villas = (await Promise.all(assigned.filter(a => a.role === user.role).map(a => ctx.db.get(a.villaId)))).filter((villa): villa is Doc<"villas"> => villa !== null);
     }
     if (villas.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
     const totals = { bookingCount: 0, chargedThb: 0, commissionsThb: 0, villaNetThb: 0 };

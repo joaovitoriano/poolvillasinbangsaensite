@@ -49,8 +49,8 @@ export const villa = query({
   returns: v.any(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (user.role === "agent") throw new Error("Villa financials are unavailable for agents / เอเจนต์ไม่สามารถเข้าถึงการเงินของวิลล่าได้");
-    await requireVillaAccess(ctx, user, args.villaId);
+    const villaRole = await requireVillaAccess(ctx, user, args.villaId);
+    if (villaRole === "agent") throw new Error("Villa financials are unavailable for agents / เอเจนต์ไม่สามารถเข้าถึงการเงินของวิลล่าได้");
     const bookings = await villaBookings(ctx, args.villaId, args.from, args.to, args.asOf);
     const userIds = [...new Set(bookings.map((booking) => booking.createdByUserId))];
     const assignments = await ctx.db.query("villaAssignments")
@@ -104,7 +104,7 @@ export const portfolio = query({
     else {
       const assignments = await ctx.db.query("villaAssignments").withIndex("by_userId_and_villaId", q => q.eq("userId", user._id)).take(201);
       if (assignments.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
-      villas = (await Promise.all(assignments.map(row => ctx.db.get(row.villaId)))).filter((villa): villa is Doc<"villas"> => villa !== null);
+      villas = (await Promise.all(assignments.filter(row => row.role === user.role).map(row => ctx.db.get(row.villaId)))).filter((villa): villa is Doc<"villas"> => villa !== null);
     }
     if (villas.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
     const allBookings = await Promise.all(villas.map(async villa => {

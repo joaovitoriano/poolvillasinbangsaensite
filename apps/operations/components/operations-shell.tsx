@@ -14,7 +14,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { signOutAction } from "@/app/ops/actions";
@@ -124,10 +124,13 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
   const villas = useQuery(api.villas.listAccessible, currentUser ? {} : "skip");
   const activeVillaId = pathname.match(/^\/ops\/villas\/([^/]+)/)?.[1];
   const activeVilla = villas?.find((villa) => villa._id === activeVillaId);
+  const router = useRouter();
+  const unavailableVilla = Boolean(currentUser && villas && activeVillaId && !activeVilla);
+  useEffect(() => { if (unavailableVilla) router.replace("/ops/overview"); }, [unavailableVilla, router]);
 
   if (syncError) return <div className="grid min-h-screen place-items-center bg-white p-6"><div className="max-w-md rounded-xl border bg-white p-6 text-center"><h1 className="font-semibold">{t({ en: "Operations access unavailable", th: "ไม่สามารถเข้าถึงระบบจัดการได้" })}</h1><p className="mt-2 text-sm text-muted-foreground">{t({ en: "Your account could not be connected to the operations organization.", th: "ไม่สามารถเชื่อมบัญชีของคุณกับองค์กรระบบจัดการได้" })}</p><form action={signOutAction} className="mt-4"><Button type="submit" variant="outline">{t({ en: "Sign out", th: "ออกจากระบบ" })}</Button></form></div></div>;
   if (isLoading || (isAuthenticated && (currentUser === undefined || villas === undefined))) return <LoadingShell />;
-  if (!workosUser || !currentUser) return <LoadingShell />;
+  if (unavailableVilla || !workosUser || !currentUser) return <LoadingShell />;
 
   const currentPage = getNavigation(currentUser.role).outer.find((item) => pathname === item.href);
   const headerTitle = activeVilla?.name ?? (currentPage ? t(currentPage.mobileLabel ?? currentPage.label) : t({ en: "Villa Operations", th: "จัดการวิลล่า" }));
@@ -153,9 +156,9 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="sm" onClick={() => setLocale(locale === "en" ? "th" : "en")}><Globe2 />{locale === "en" ? "ไทย" : "EN"}</Button>
           </div>
         </header>
-        <main className={mainClass}>{children}</main>
+        <main key={`${currentUser._id}:${currentUser.role}`} className={mainClass}>{children}</main>
       </div>
-      <MobileBottomNavigation role={currentUser.role} pathname={pathname} activeVilla={activeVilla} />
+      <MobileBottomNavigation role={activeVilla?.role ?? currentUser.role} pathname={pathname} activeVilla={activeVilla} />
     </div>
   );
 }

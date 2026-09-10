@@ -1,5 +1,7 @@
 "use client";
 
+import { ConvexError } from "convex/values";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
@@ -19,6 +21,20 @@ export default function PersonalSettingsPage() {
   const user = useQuery(api.users.current);
   const changes = useFormChanges();
   const save = useMutation(api.users.updateProfile);
+  const switchMode = useMutation(api.users.switchAccountMode);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
+  async function changeMode(mode: string) {
+    if (switching || busy || (mode !== "owner" && mode !== "agent") || mode === user?.role) return;
+    setSwitching(true); setSwitchError("");
+    try {
+      await switchMode({ mode });
+      window.location.assign("/ops/overview");
+    } catch (error) {
+      setSwitchError(error instanceof ConvexError ? localize(String(error.data)) : t({ en: "Could not switch account type. Please try again.", th: "ไม่สามารถเปลี่ยนประเภทบัญชีได้ กรุณาลองอีกครั้ง" }));
+      setSwitching(false);
+    }
+  }
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!changes.dirty || busy) return; const form = event.currentTarget; const submitted = changes.capture(form); const data = new FormData(event.currentTarget); setBusy(true); setMessage("");
@@ -36,6 +52,11 @@ export default function PersonalSettingsPage() {
       <Button disabled={busy || !changes.dirty} type="submit">{busy ? t({ en: "Saving…", th: "กำลังบันทึก…" }) : t({ en: "Save changes", th: "บันทึกการเปลี่ยนแปลง" })}</Button>
       {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
     </form>}
+    {user && user.role !== "admin" && user.availableRoles.length > 1 && <section aria-labelledby="account-type-title" className="grid gap-3">
+      <h2 id="account-type-title" className="text-lg font-semibold">{t({ en: "Switch account type", th: "เปลี่ยนประเภทบัญชี" })}</h2>
+      <Tabs value={user.role} onValueChange={value => void changeMode(String(value))}><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="owner" disabled={switching || busy || changes.dirty}>{t({ en: "Owner", th: "เจ้าของ" })}</TabsTrigger><TabsTrigger value="agent" disabled={switching || busy || changes.dirty}>{t({ en: "Agent", th: "ตัวแทน" })}</TabsTrigger></TabsList></Tabs>
+      {switchError && <p role="alert" className="text-sm text-destructive">{switchError}</p>}
+    </section>}
     <form action={signOutAction} className="mt-auto pt-6"><Button className="w-full" variant="outline" type="submit">{t({ en: "Sign out", th: "ออกจากระบบ" })}</Button></form>
   </div></PageFrame>;
 }

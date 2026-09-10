@@ -23,7 +23,7 @@ export async function setup() {
   await t.run(async ctx => {
     for (const index of [1, 2, 3]) await ctx.db.insert("villaAssignments", { villaId, userId: users[index], role: index === 1 ? "owner" : "agent", createdAt: Date.now() });
   });
-  const activity = () => admin.query(api.activity.list, { paginationOpts: { numItems: 100, cursor: null } });
+  const activity = () => admin.query(api.activity.list, { page: 1 });
   const counts = () => t.run(async ctx => ({ bookings: (await ctx.db.query("bookings").collect()).length, nights: (await ctx.db.query("bookingNights").collect()).length, closed: (await ctx.db.query("closedDates").collect()).length, closedNights: (await ctx.db.query("closedDateNights").collect()).length, guests: (await ctx.db.query("guests").collect()).length, activity: (await ctx.db.query("activity").collect()).length }));
   return { t, admin, owner, agent, other, users, villaId, secondVilla, villaData, activity, counts, identity };
 }

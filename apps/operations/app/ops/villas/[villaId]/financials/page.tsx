@@ -20,8 +20,8 @@ export default function VillaFinancialsPage() {
   const [range, setRange] = useState(() => { const range = currentYearRange(); return { ...range, to: `${range.from.slice(0, 4)}-12-31` }; });
   const valid = Boolean(range.from && range.to && range.to >= range.from);
   const toExclusive = valid ? new Date(Date.parse(`${range.to}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : "";
-  const data = useQuery(api.financials.villa, user && user.role !== "agent" && valid ? { villaId, from: range.from, to: toExclusive, asOf } : "skip");
-  if (user?.role === "agent") redirect(`/ops/villas/${villaId}/calendar`);
+  const data = useQuery(api.financials.villa, user && villa && villa.role !== "agent" && valid ? { villaId, from: range.from, to: toExclusive, asOf } : "skip");
+  if (villa?.role === "agent") redirect(`/ops/villas/${villaId}/calendar`);
   const ownOnly = false;
   return <PageFrame title={{ en: `${villa?.name ?? "Villa"} financials`, th: `การเงิน ${villa?.name ?? "วิลล่า"}` }} mobileTitle={{ en: "Financials", th: "การเงิน" }} description={ownOnly ? { en: "Your commissions and the bookings that produced them.", th: "ค่าคอมมิชชั่นของคุณและรายการจองที่เกี่ยวข้อง" } : { en: "Villa totals and a booking list broken down by person.", th: "ยอดรวมของวิลล่าและรายการจองแยกตามบุคคล" }} action={<DateRangeFilter {...range} onChange={setRange} />}><FinancialDashboard data={data} ownOnly={ownOnly} /></PageFrame>;
 }

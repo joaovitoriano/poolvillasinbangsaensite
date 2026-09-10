@@ -6,7 +6,7 @@ const tracked: Record<string, string[]> = {
   closedDates: ["from", "to", "notes", "status"],
   villas: ["name", "contactName", "contactPhone", "contactLineId", "archived"],
   pricingPresets: ["name", "nightlyPriceThb", "daysOfWeek", "dateFrom", "dateTo", "sortOrder", "active", "isDefault"],
-  operationsUsers: ["name", "phone", "lineId", "email", "role", "active"],
+  operationsUsers: ["name", "phone", "lineId", "email", "role", "accountMode", "active"],
   villaInvitations: ["email", "role", "status"],
   villaAssignments: ["role", "userId"],
 };

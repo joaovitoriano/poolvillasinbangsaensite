@@ -35,7 +35,7 @@ export const listForVilla = query({
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await requireVillaAccess(ctx, user, args.villaId);
+    const villaRole = await requireVillaAccess(ctx, user, args.villaId);
     const limit = Math.max(1, Math.min(args.limit ?? 200, 500));
     const orderedBookings = ctx.db.query("bookings").withIndex("by_villa_and_createdAt", (q) => q.eq("villaId", args.villaId));
     const bookings = await orderedBookings
@@ -47,7 +47,7 @@ export const listForVilla = query({
         ctx.db.get(booking.createdByUserId),
         hydrateGuest(ctx, booking),
       ]);
-      const restricted = user.role === "agent" && booking.createdByUserId !== user._id;
+      const restricted = villaRole === "agent" && booking.createdByUserId !== user._id;
       return { ...hydrated, guestId: restricted ? undefined : hydrated.guestId, guestPhone: restricted ? "••••••••" : hydrated.guestPhone, guestLineId: restricted ? "••••••••" : hydrated.guestLineId, contactsHidden: restricted, creatorName: creator?.name ?? creator?.email ?? "Unknown / ไม่ทราบ" };
     }));
   },
@@ -60,8 +60,8 @@ export const get = query({
     const user = await requireUser(ctx);
     const booking = await ctx.db.get(args.bookingId);
     if (!booking) return null;
-    await requireVillaAccess(ctx, user, booking.villaId);
-    const restricted = user.role === "agent" && booking.createdByUserId !== user._id;
+    const villaRole = await requireVillaAccess(ctx, user, booking.villaId);
+    const restricted = villaRole === "agent" && booking.createdByUserId !== user._id;
     const nights = await ctx.db
       .query("bookingNights")
       .withIndex("by_bookingId_and_date", (q) => q.eq("bookingId", booking._id))

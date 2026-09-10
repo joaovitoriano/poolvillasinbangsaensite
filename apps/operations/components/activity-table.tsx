@@ -1,11 +1,12 @@
 "use client";
 
-import { usePaginatedQuery } from "convex/react";
+import { useQuery } from "convex/react";
+import { useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useLocale } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatThb } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -33,6 +34,7 @@ const fields: Record<string, { en: string; th: string }> = {
   archived: { en: "Archived", th: "เก็บถาวร" }, nightlyPriceThb: { en: "Nightly price", th: "ราคาต่อคืน" }, daysOfWeek: { en: "Days", th: "วัน" },
   dateFrom: { en: "From", th: "จาก" }, dateTo: { en: "To", th: "ถึง" }, sortOrder: { en: "Order", th: "ลำดับ" },
   active: { en: "Active", th: "ใช้งาน" }, isDefault: { en: "Default", th: "ค่าเริ่มต้น" }, role: { en: "Role", th: "บทบาท" },
+  accountMode: { en: "Account type", th: "ประเภทบัญชี" },
   email: { en: "Email", th: "อีเมล" }, userId: { en: "Member", th: "สมาชิก" },
 };
 const values: Record<string, { en: string; th: string }> = {
@@ -46,7 +48,17 @@ const values: Record<string, { en: string; th: string }> = {
 };
 export function ActivityTable() {
   const { locale, t } = useLocale();
-  const { results, status, loadMore } = usePaginatedQuery(api.activity.list, {}, { initialNumItems: 20 });
+  const [page, setPage] = useState(1);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const data = useQuery(api.activity.list, { page });
+  const currentPage = data?.currentPage ?? page;
+  const changePage = (number: number) => {
+    setPage(number);
+    heading.current?.scrollIntoView({ block: "start" });
+    heading.current?.focus({ preventScroll: true });
+  };
+  const firstPage = Math.max(1, Math.min(currentPage - 2, (data?.pageCount ?? 1) - 4));
+  const pageNumbers = Array.from({ length: Math.min(5, data?.pageCount ?? 1) }, (_, index) => firstPage + index);
   const display = (field: string, value: string, row: Doc<"activity">, side: "before" | "after") => {
     if (!value) return "—";
     if (["checkIn", "checkOut", "from", "to", "dateFrom", "dateTo"].includes(field) && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value, locale);
@@ -61,12 +73,13 @@ export function ActivityTable() {
       const days = locale === "th" ? ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       try { return (JSON.parse(value) as number[]).map(day => days[day]).join(", ") || "—"; } catch { return value; }
     }
-    return ["reason", "role", "status", "active", "archived", "isDefault", "commissionMode", "discountMode"].includes(field) && values[value] ? t(values[value]) : value;
+    return ["reason", "role", "accountMode", "status", "active", "archived", "isDefault", "commissionMode", "discountMode"].includes(field) && values[value] ? t(values[value]) : value;
   };
-  return <Card className="min-w-0"><CardHeader><CardTitle>{t({ en: "Activity", th: "กิจกรรม" })}</CardTitle></CardHeader><CardContent className="px-0">
-    {status === "LoadingFirstPage" && <Skeleton className="mx-4 h-24" />}
-    {status !== "LoadingFirstPage" && !results.length && <p className="px-4 py-6 text-sm text-muted-foreground">{t({ en: "No activity yet.", th: "ยังไม่มีกิจกรรม" })}</p>}
-    <ul className="divide-y">{(results as Doc<"activity">[]).map(row => {
+  return <section className="min-w-0" aria-labelledby="activity-heading">
+    <h2 id="activity-heading" ref={heading} tabIndex={-1} className="mb-3 scroll-mt-20 text-base font-semibold outline-none">{t({ en: "Activity", th: "กิจกรรม" })}</h2>
+    {!data && <Skeleton className="h-24" />}
+    {data && !data.page.length && <p className="py-6 text-sm text-muted-foreground">{t({ en: "No activity yet.", th: "ยังไม่มีกิจกรรม" })}</p>}
+    <ul className="divide-y">{(data?.page as Doc<"activity">[] | undefined)?.map(row => {
       const entity = locale === "en" ? entities[row.entity].en.toLowerCase() : t(entities[row.entity]);
       const action = row.action === "created" ? t({ en: "New", th: "สร้าง" }) : row.action === "cancelled" ? t({ en: "Cancelled", th: "ยกเลิก" }) : row.action === "deleted" ? t({ en: "Deleted", th: "ลบ" }) : t({ en: "Updated", th: "แก้ไข" });
       const title = `${action} ${entity}${row.villaName ? ` · ${row.villaName}` : ""}`;
@@ -81,13 +94,17 @@ export function ActivityTable() {
         return <>{display(change.field, change.before, row, "before")} → {display(change.field, change.after, row, "after")}</>;
       };
       const renderField = (change: Doc<"activity">["changes"][number]) => <div key={change.field} className="grid grid-cols-[6rem_1fr] gap-2"><dt className="text-muted-foreground">{t(fields[change.field])}</dt><dd className="min-w-0 break-words whitespace-pre-wrap">{renderValue(change)}</dd></div>;
-      return <li key={row._id} className="px-4 py-3">
+      return <li key={row._id} className="py-3">
         <p className="text-sm font-medium">{title}</p>
         {context.length > 0 && <dl className="mt-2 grid gap-1 text-xs">{context.map(renderField)}</dl>}
         <p className="mt-1 text-xs text-muted-foreground">{t({ en: "by", th: "โดย" })} {row.actorName} · <time dateTime={new Date(row.createdAt).toISOString()}>{new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(row.createdAt)}</time></p>
         {details.length > 0 && <details className="mt-2 text-xs"><summary className="w-fit cursor-pointer text-muted-foreground">{t({ en: "View details", th: "ดูรายละเอียด" })}</summary><dl className="mt-2 grid gap-1.5">{details.map(renderField)}</dl></details>}
       </li>;
     })}</ul>
-    {(status === "CanLoadMore" || status === "LoadingMore") && <div className="px-4 pt-3"><Button variant="outline" size="sm" disabled={status === "LoadingMore"} onClick={() => loadMore(20)}>{t({ en: "Load more", th: "โหลดเพิ่มเติม" })}</Button></div>}
-  </CardContent></Card>;
+    {data && data.pageCount > 1 && <nav className="mt-4 flex items-center justify-center gap-1.5" aria-label={t({ en: "Activity pages", th: "หน้ารายการกิจกรรม" })}>
+      <Button type="button" variant="outline" size="icon-sm" className="size-8 rounded-sm" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)} aria-label={t({ en: "Previous page", th: "หน้าก่อนหน้า" })}><ChevronLeft /></Button>
+      {pageNumbers.map(number => <Button key={number} type="button" variant={number === currentPage ? "default" : "outline"} size="icon-sm" className="size-8 rounded-sm text-xs" aria-current={number === currentPage ? "page" : undefined} aria-label={t({ en: `Page ${number}`, th: `หน้า ${number}` })} onClick={() => changePage(number)}>{number}</Button>)}
+      <Button type="button" variant="outline" size="icon-sm" className="size-8 rounded-sm" disabled={currentPage === data.pageCount} onClick={() => changePage(currentPage + 1)} aria-label={t({ en: "Next page", th: "หน้าถัดไป" })}><ChevronRight /></Button>
+    </nav>}
+  </section>;
 }

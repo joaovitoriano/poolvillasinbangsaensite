@@ -23,7 +23,6 @@ export const send = action({
         const membership = memberships.data.find(row => row.organizationId === organizationId);
         if (membership?.status === "inactive") throw new ConvexError("This organization membership is inactive / สมาชิกภาพในองค์กรนี้ถูกระงับอยู่");
         if (membership?.status === "active") {
-          if (membership.role.slug !== `org-${args.role}`) throw new ConvexError("The selected role does not match this person's organization role / บทบาทที่เลือกไม่ตรงกับบทบาทในองค์กรของบุคคลนี้");
           return await ctx.runMutation(internal.team.saveInvitation, { ...details, verifiedWorkosUserId: person.id });
         }
       }
@@ -36,5 +35,27 @@ export const send = action({
       if (error instanceof ConvexError) throw error;
       throw new ConvexError("Could not add this person. Please try again / ไม่สามารถเพิ่มบุคคลนี้ได้ กรุณาลองอีกครั้ง");
     }
+  },
+});
+
+export const cancel = action({
+  args: { invitationId: v.id("villaInvitations") },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const context = await ctx.runQuery(internal.team.cancellationContext, args);
+    if (!context.pending) return null;
+    if (context.workosInvitationId) {
+      if (!env.WORKOS_API_KEY) throw new ConvexError("Invitation service is unavailable. Please try again later / ระบบเชิญไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง");
+      const workos = new WorkOS(env.WORKOS_API_KEY, { clientId: env.WORKOS_CLIENT_ID });
+      try {
+        const invitation = await workos.userManagement.getInvitation(context.workosInvitationId);
+        if (invitation.state === "accepted") throw new ConvexError("This invitation has been accepted. Remove the member from the villa instead / คำเชิญนี้ได้รับการตอบรับแล้ว กรุณาลบสมาชิกออกจากวิลล่าแทน");
+        if (invitation.state === "pending") await workos.userManagement.revokeInvitation(context.workosInvitationId);
+      } catch (error) {
+        if (error instanceof ConvexError) throw error;
+        throw new ConvexError("Could not cancel the invitation. Please try again / ไม่สามารถยกเลิกคำเชิญได้ กรุณาลองอีกครั้ง");
+      }
+    }
+    return await ctx.runMutation(internal.team.markInvitationCancelled, args);
   },
 });

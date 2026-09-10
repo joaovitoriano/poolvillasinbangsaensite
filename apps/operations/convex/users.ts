@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { identityClaims, requireUser } from "./lib/auth";
 import { activityContext } from "./lib/activity";
 
@@ -81,6 +81,7 @@ export const current = query({
       avatarUrl: v.optional(v.string()),
       role: v.union(v.literal("admin"), v.literal("owner"), v.literal("agent")),
       permissions: v.array(v.string()),
+      availableRoles: v.array(v.union(v.literal("owner"), v.literal("agent"))),
     }),
   ),
   handler: async (ctx) => {
@@ -95,6 +96,7 @@ export const current = query({
         avatarUrl: user.avatarUrl,
         role: user.role,
         permissions: user.permissions,
+        availableRoles: user.availableRoles,
       };
     } catch {
       return null;
@@ -110,6 +112,19 @@ export const updateProfile = mutation({
     ctx = activityContext(ctx, user);
     if (!args.name.trim()) throw new Error("Name is required / กรุณาระบุชื่อ");
     await ctx.db.patch(user._id, { name: args.name.trim(), phone: args.phone?.trim() || undefined, lineId: args.lineId?.trim() || undefined });
+    return null;
+  },
+});
+
+export const switchAccountMode = mutation({
+  args: { mode: v.union(v.literal("owner"), v.literal("agent")) },
+  returns: v.null(),
+  handler: async (ctx, { mode }) => {
+    const user = await requireUser(ctx);
+    if (user.role === "admin") throw new ConvexError("Admins do not switch account type / ผู้ดูแลไม่ต้องเปลี่ยนประเภทบัญชี");
+    if (!user.availableRoles.includes(mode)) throw new ConvexError("This account type is unavailable / ไม่สามารถใช้ประเภทบัญชีนี้ได้");
+    ctx = activityContext(ctx, user);
+    await ctx.db.patch(user._id, { accountMode: mode });
     return null;
   },
 });

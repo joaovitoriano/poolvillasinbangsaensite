@@ -22,14 +22,14 @@ export const search = query({
       .query("guests")
       .withIndex("by_normalizedName", (q) => q.gte("normalizedName", prefix).lt("normalizedName", `${prefix}\uffff`))
       .take(8);
-    const assignments = user.role === "owner" ? await ctx.db.query("villaAssignments").withIndex("by_userId_and_villaId", q => q.eq("userId", user._id)).take(201) : [];
+    const assignments = user.role !== "admin" ? await ctx.db.query("villaAssignments").withIndex("by_userId_and_villaId", q => q.eq("userId", user._id)).take(201) : [];
     if (assignments.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
     const visible = user.role === "admin" ? guests : (await Promise.all(guests.map(async guest => {
-      if (user.role === "agent") {
-        const own = await ctx.db.query("bookings").withIndex("by_guest_and_creator", q => q.eq("guestId", guest._id).eq("createdByUserId", user._id)).first();
-        return own ? guest : null;
+      {
+        const own = await ctx.db.query("bookings").withIndex("by_guest_and_creator", q => q.eq("guestId", guest._id).eq("createdByUserId", user._id)).filter(q => q.or(...assignments.filter(row => row.role === user.role).map(row => q.eq(q.field("villaId"), row.villaId)))).first();
+        if (own) return guest;
       }
-      for (const assignment of assignments) {
+      for (const assignment of assignments.filter(row => user.role === "owner" && row.role === "owner")) {
         const booking = await ctx.db.query("bookings").withIndex("by_guest_and_villa", q => q.eq("guestId", guest._id).eq("villaId", assignment.villaId)).first();
         if (booking) return guest;
       }
