@@ -17,7 +17,7 @@ import { useFormChanges } from "@/hooks/use-form-changes";
 import { signOutAction } from "@/app/ops/actions";
 
 export default function PersonalSettingsPage() {
-  const { t, localize } = useLocale();
+  const { locale, setLocale, t, localize } = useLocale();
   const user = useQuery(api.users.current);
   const changes = useFormChanges();
   const save = useMutation(api.users.updateProfile);
@@ -42,7 +42,7 @@ export default function PersonalSettingsPage() {
     catch (error) { setMessage(error instanceof Error ? localize(error.message) : t({ en: "Could not save.", th: "ไม่สามารถบันทึกได้" })); }
     finally { setBusy(false); }
   }
-  return <PageFrame title={{ en: "Settings", th: "การตั้งค่า" }}><div className="flex min-h-[calc(100dvh-10.75rem-env(safe-area-inset-bottom))] flex-col gap-6">
+  return <PageFrame title={{ en: "Settings", th: "การตั้งค่า" }}><div className="flex min-h-[calc(100dvh-7.25rem-env(safe-area-inset-bottom))] flex-col gap-6">
     <h1 className="text-lg font-semibold">{t({ en: "Your account details", th: "ข้อมูลบัญชีของคุณ" })}</h1>
     {!user && <Skeleton className="h-64" />}
     {user && <form ref={changes.ref} onChange={changes.onChange} key={user._id} onSubmit={submit} className="grid gap-4">
@@ -57,6 +57,15 @@ export default function PersonalSettingsPage() {
       <Tabs value={user.role} onValueChange={value => void changeMode(String(value))}><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="owner" disabled={switching || busy || changes.dirty}>{t({ en: "Owner", th: "เจ้าของ" })}</TabsTrigger><TabsTrigger value="agent" disabled={switching || busy || changes.dirty}>{t({ en: "Agent", th: "ตัวแทน" })}</TabsTrigger></TabsList></Tabs>
       {switchError && <p role="alert" className="text-sm text-destructive">{switchError}</p>}
     </section>}
+    <section aria-labelledby="language-title" className="grid gap-3">
+      <h2 id="language-title" className="text-lg font-semibold">{t({ en: "Language", th: "ภาษา" })}</h2>
+      <Tabs value={locale} onValueChange={value => { if (value === "en" || value === "th") setLocale(value); }}>
+        <TabsList aria-label={t({ en: "Language", th: "ภาษา" })} className="grid w-full grid-cols-2">
+          <TabsTrigger value="en">{t({ en: "English", th: "อังกฤษ" })}</TabsTrigger>
+          <TabsTrigger value="th">{t({ en: "Thai", th: "ไทย" })}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </section>
     <form action={signOutAction} className="mt-auto pt-6"><Button className="w-full" variant="outline" type="submit">{t({ en: "Sign out", th: "ออกจากระบบ" })}</Button></form>
   </div></PageFrame>;
 }

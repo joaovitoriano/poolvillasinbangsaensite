@@ -8,7 +8,6 @@ import {
   CalendarDays,
   ChartNoAxesCombined,
   ClipboardList,
-  Globe2,
   LayoutDashboard,
   Settings,
   User,
@@ -108,7 +107,7 @@ function LoadingShell() {
 
 export function OperationsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { locale, setLocale, t } = useLocale();
+  const { t } = useLocale();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { user: workosUser } = useAuth();
   const syncCurrent = useMutation(api.users.syncCurrent);
@@ -132,8 +131,6 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
   if (isLoading || (isAuthenticated && (currentUser === undefined || villas === undefined))) return <LoadingShell />;
   if (unavailableVilla || !workosUser || !currentUser) return <LoadingShell />;
 
-  const currentPage = getNavigation(currentUser.role).outer.find((item) => pathname === item.href);
-  const headerTitle = activeVilla?.name ?? (currentPage ? t(currentPage.mobileLabel ?? currentPage.label) : t({ en: "Villa Operations", th: "จัดการวิลล่า" }));
   const isCalendarRoute = /^\/ops\/villas\/[^/]+\/calendar\/?$/i.test(pathname);
   const isVillaFinancialsRoute = /^\/ops\/villas\/[^/]+\/financials\/?$/i.test(pathname);
   const mainClass = isCalendarRoute
@@ -145,17 +142,6 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-foreground">
       <div>
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-white/95 px-4 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-semibold">{headerTitle}</p>
-              {activeVilla?.contactName && <p className="truncate text-[11px] text-muted-foreground">{activeVilla.contactName}</p>}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setLocale(locale === "en" ? "th" : "en")}><Globe2 />{locale === "en" ? "ไทย" : "EN"}</Button>
-          </div>
-        </header>
         <main key={`${currentUser._id}:${currentUser.role}`} className={mainClass}>{children}</main>
       </div>
       <MobileBottomNavigation role={activeVilla?.role ?? currentUser.role} pathname={pathname} activeVilla={activeVilla} />
