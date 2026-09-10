@@ -8,7 +8,7 @@ const APP_SHELL = [
   "/icons/icon-maskable-512.png",
   "/icons/apple-touch-icon.png",
 ];
-const PRIVATE_PATHS = ["/admin", "/auth", "/sign-in", "/api"];
+const PRIVATE_PATHS = ["/admin", "/auth", "/sign-in", "/api", "/ops"];
 const CACHEABLE_DESTINATIONS = new Set(["font", "image", "script", "style"]);
 
 self.addEventListener("install", (event) => {
