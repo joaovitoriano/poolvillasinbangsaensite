@@ -16,7 +16,7 @@
       },
       "routing": [
         {
-          "paths": ["/ops", "/ops/:path*", "/ops-icon.svg"]
+          "paths": ["/ops", "/ops/:path*"]
         }
       ]
     }
