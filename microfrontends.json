@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/microfrontends.json",
+  "version": "1",
+  "applications": {
+    "poolvillasinbangsaen": {
+      "packageName": "poolvillasinbangsaen-clean",
+      "development": {
+        "local": 3000,
+        "fallback": "https://www.poolvillasinbangsaen.com"
+      }
+    },
+    "poolvillas-operations": {
+      "packageName": "@poolvillas/operations",
+      "development": {
+        "local": 3001
+      },
+      "routing": [
+        {
+          "paths": ["/ops", "/ops/:path*"]
+        }
+      ]
+    }
+  }
+}

@@ -14,9 +14,9 @@ Implement requested changes fully across the frontend, backend, schema, types, v
 
 Additive production changes are allowed when they are within the user's requested scope. Never execute, deploy, or push a change that will delete, purge, drop, truncate, reset, destructively overwrite, or irreversibly migrate production data, resources, or configuration without explicit human confirmation immediately before the destructive action. Before requesting confirmation, identify the exact production target and clearly state what will be removed or made unrecoverable. This confirmation requirement also applies to automated migrations, cleanup jobs, cascading deletes, and deployment-time behavior, even when the broader task was previously approved. Read-only production inspection is allowed without confirmation. Development data remains governed by the development-data rule above.
 
-## Manual verification only
+## Automated verification
 
-Do not create automated tests for this project. When behavior needs verification or an agent is concerned about a possible regression, run the application and verify the relevant user flow manually through the browser. Use the browser to exercise the actual interaction, including relevant English and Thai states, success paths, and failure or recovery states. Do not add test files, test scripts, test frameworks, test-only dependencies, snapshots, fixtures, or CI test steps.
+Use automated tests for backend validation, authorization, calculations, and state transitions, and browser tests for important user interactions. Keep test data isolated from development and production deployments. Cover successful requests, malformed and missing parameters, forbidden access, and failure recovery. Verify English and Thai UI states where applicable. Run relevant tests after changes and report remaining coverage limitations.
 
 ## Reference projects
 

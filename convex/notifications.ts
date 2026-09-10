@@ -16,7 +16,7 @@ function testNotificationInput(language: NotificationLanguage): BookingNotificat
     estimatedTotalThb: 12500,
     phone: "081-234-5678",
     lineId: "@poolvillasbangsaen",
-    inquiryUrl: `${siteUrl}/admin?view=inquiries`,
+    inquiryUrl: `${siteUrl}/admin/inquiries`,
     villaUrl: `${siteUrl}/${language}/villas/test-villa`,
     customerLineUrl: lineContactUrl("@poolvillasbangsaen"),
   };
@@ -99,7 +99,7 @@ export const deliver = internalAction({
     const payload = await ctx.runQuery(internal.bookingRequests.notificationPayload, args);
     const { request, villa, settings, delivery } = payload;
     const siteUrl=(env.PUBLIC_SITE_URL??"http://localhost:3000").replace(/\/$/,"");
-    const inquiryUrl = `${siteUrl}/admin?view=inquiries`;
+    const inquiryUrl = `${siteUrl}/admin/inquiries`;
     const notificationLanguage = settings?.notificationLanguage ?? "th";
     const villaUrl = `${siteUrl}/${notificationLanguage}/villas/${villa.slug}`;
     const customerLineUrl = lineContactUrl(request.lineId ?? "");

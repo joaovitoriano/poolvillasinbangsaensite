@@ -1,0 +1,17 @@
+**/.env*
+**/.next*/**
+**/.next*
+**/node_modules/**
+**/.vercel/**
+**/*.tsbuildinfo
+**/*.log
+.codex*/**
+.codex*
+.agents/**
+.claude/**
+auth/**
+docs/**
+skills-lock.json
+villa-database-intake.md
+villa-listing-research.md
+**/convex/_generated/ai/**

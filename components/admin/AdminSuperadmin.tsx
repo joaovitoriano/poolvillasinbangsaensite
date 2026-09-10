@@ -124,7 +124,7 @@ function IntegrationsPanel() {
   const [emailTestBusy, setEmailTestBusy] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   if (data === undefined || settings === undefined) return <AdminSkeleton rows={6} className="border border-[#ddd6ca]" />;
-  if (!settings) return <AdminEmptyState className="border border-[#ddd6ca] bg-white" title={copy("Settings are not initialized", "ยังไม่ได้เริ่มต้นการตั้งค่า")} detail={copy("Run the project’s initial seed before editing integration configuration.", "เรียกใช้ข้อมูลเริ่มต้นของโปรเจกต์ก่อนแก้ไขการตั้งค่าการเชื่อมต่อ")} />;
+  if (!settings) return <AdminEmptyState className="border border-[#ddd6ca] bg-white" title={copy("Settings are not initialized", "ยังไม่ได้เริ่มต้นการตั้งค่า")} />;
   const currentSettings = settings;
   const publishedVillas = data.villas.filter((villa) => villa.status === "published");
   const calendarConnectionIssues = publishedVillas.filter((villa) => {

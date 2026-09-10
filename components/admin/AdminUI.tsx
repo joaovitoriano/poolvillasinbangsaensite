@@ -288,12 +288,12 @@ export function AdminToast({ tone = "success", title, children }: { tone?: Notic
   return null;
 }
 
-export function AdminEmptyState({ title, detail, action, className }: { title: string; detail: string; action?: ReactNode; className?: string }) {
+export function AdminEmptyState({ title, detail, action, className }: { title: string; detail?: string; action?: ReactNode; className?: string }) {
   return (
     <div className={cx("grid min-h-52 place-items-center px-6 py-12 text-center", className)}>
       <div className="max-w-sm">
         <h3 className="text-sm font-semibold text-[#001e33]">{title}</h3>
-        <p className="mt-1.5 text-xs leading-5 text-[#68777a]">{detail}</p>
+        {detail ? <p className="mt-1.5 text-xs leading-5 text-[#68777a]">{detail}</p> : null}
         {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
       </div>
     </div>

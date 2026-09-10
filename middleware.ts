@@ -1,16 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { adminRoutes, type AdminView } from "@/components/admin/admin-routes";
 
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const legacyAdminView = pathname === "/admin" ? request.nextUrl.searchParams.get("view") : null;
-  if (legacyAdminView) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = legacyAdminView in adminRoutes ? adminRoutes[legacyAdminView as AdminView] : adminRoutes.overview;
-    redirectUrl.searchParams.delete("view");
-    return NextResponse.redirect(redirectUrl, 308);
-  }
   const locale = pathname === "/" || pathname === "/th" || pathname.startsWith("/th/") ? "th" : "en";
   const requiresAuth =
     pathname === "/admin" ||
@@ -33,5 +25,6 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/th/:path*", "/admin/:path*", "/sign-in", "/auth/:path*"],
 };
