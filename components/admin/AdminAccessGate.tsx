@@ -43,7 +43,7 @@ function AdminGate({ title, detail, action = false, signOutAction = false }: { t
             <div role="group" aria-labelledby="admin-sign-in-label" className="grid grid-cols-2 gap-3">
               <Link href="/sign-in" prefetch={false} className="inline-flex min-h-11 items-center justify-center bg-[#062544] px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Customer Site", "เว็บไซต์ลูกค้า")}</Link>
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Operations is a separate Next.js application and needs a full document navigation. */}
-              <a href="/ops" className="inline-flex min-h-11 items-center justify-center bg-[#062544] px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Ops site", "ระบบจัดการวิลล่า")}</a>
+              <a href="/ops/overview" className="inline-flex min-h-11 items-center justify-center bg-[#062544] px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Ops site", "ระบบจัดการวิลล่า")}</a>
             </div>
           </div>
         ) : null}
