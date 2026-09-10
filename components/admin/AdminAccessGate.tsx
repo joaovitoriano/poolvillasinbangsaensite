@@ -37,7 +37,16 @@ function AdminGate({ title, detail, action = false, signOutAction = false }: { t
         {!action && !signOutAction ? <LoaderCircle size={18} className="mx-auto mt-6 animate-spin text-[#0f6474] motion-reduce:animate-none" /> : null}
         <h1 className="mt-4 font-serif text-3xl font-semibold text-[#001e33]">{title}</h1>
         <p className="mt-2 text-sm leading-6 text-[#68777a]">{detail}</p>
-        {action ? <Link href="/sign-in" className="mt-6 inline-flex min-h-11 items-center justify-center bg-[#062544] px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Sign in securely", "เข้าสู่ระบบอย่างปลอดภัย")}</Link> : null}
+        {action ? (
+          <div className="mt-6">
+            <p id="admin-sign-in-label" className="mb-3 text-sm font-semibold text-[#062544]">{copy("Sign in", "เข้าสู่ระบบ")}</p>
+            <div role="group" aria-labelledby="admin-sign-in-label" className="grid grid-cols-2 gap-3">
+              <Link href="/sign-in" prefetch={false} className="inline-flex min-h-11 items-center justify-center bg-[#062544] px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Customer Site", "เว็บไซต์ลูกค้า")}</Link>
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Operations is a separate Next.js application and needs a full document navigation. */}
+              <a href="/ops" className="inline-flex min-h-11 items-center justify-center bg-[#062544] px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#178067]">{copy("Ops site", "ระบบจัดการวิลล่า")}</a>
+            </div>
+          </div>
+        ) : null}
         {signOutAction ? <AdminButton variant="secondary" className="mt-6" onClick={() => void signOut({ returnTo: `${window.location.origin}/${locale}` })}><LogOut size={15} /> {copy("Sign out", "ออกจากระบบ")}</AdminButton> : null}
       </section>
     </main>
