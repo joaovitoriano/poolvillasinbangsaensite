@@ -1,6 +1,6 @@
 export function formatThb(value: number, locale: "en" | "th") {
   return `${new Intl.NumberFormat(locale === "th" ? "th-TH" : "en-US", {
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value)}฿`;
 }
 

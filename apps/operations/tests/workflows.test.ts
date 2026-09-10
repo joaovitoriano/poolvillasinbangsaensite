@@ -52,6 +52,7 @@ it("scopes financial totals by role and excludes cancelled bookings and out-of-p
   const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
   await f.other.mutation(api.bookings.create, { ...booking, villaId: f.villaId, checkIn: "2030-09-22", checkOut: "2030-09-24" });
   await f.admin.mutation(api.bookings.create, { ...booking, villaId: f.secondVilla });
+  vi.setSystemTime(new Date("2030-09-22T00:00:00+07:00"));
   expect((await f.admin.query(api.financials.portfolio, period)).totals).toMatchObject({ bookingCount: 3, chargedThb: 16500, commissionsThb: 1650, villaNetThb: 14850 });
   expect((await f.owner.query(api.financials.portfolio, period)).totals).toMatchObject({ bookingCount: 2, chargedThb: 11000 });
   expect((await f.agent.query(api.financials.portfolio, period)).totals).toEqual({ bookingCount: 1, chargedThb: 5500, commissionsThb: 550 });
@@ -80,4 +81,21 @@ it("keeps recurring days and date-range pricing exclusive and uses matching rate
   await f.admin.mutation(api.pricing.save, preset);
   const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
   expect(await f.agent.query(api.bookings.get, { bookingId })).toMatchObject({ subtotalThb: 7000, totalChargedThb: 6500, creatorCommissionThb: 650 });
+});
+
+it("recognizes revenue on Bangkok check-in day and moves it with amendments", async () => {
+  const f = await setup();
+  const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
+  const count = async () => (await f.admin.query(api.financials.portfolio, period)).totals.bookingCount;
+  vi.setSystemTime(new Date("2030-09-19T16:59:59Z"));
+  expect(await count()).toBe(0);
+  vi.setSystemTime(new Date("2030-09-19T17:00:00Z"));
+  expect(await count()).toBe(1);
+  expect((await f.owner.query(api.financials.villa, { villaId: f.villaId, ...period })).totals.bookingCount).toBe(1);
+  await f.agent.mutation(api.bookings.update, { ...booking, bookingId, checkIn: "2030-12-22", checkOut: "2030-12-24" });
+  expect(await count()).toBe(0);
+  vi.setSystemTime(new Date("2030-12-21T17:00:00Z"));
+  expect(await count()).toBe(1);
+  await f.agent.mutation(api.bookings.cancel, { bookingId });
+  expect(await count()).toBe(0);
 });

@@ -16,7 +16,7 @@ type Totals = { bookingCount: number; grossThb: number; discountsThb: number; ch
 type Series = Totals & { date: string };
 type VillaRow = Totals & { villaId: string; villaName: string };
 type UserRow = Totals & { userId: string; name: string; role: string };
-type BookingRow = { _id: string; guestName: string; checkIn: string; totalChargedThb: number; creatorCommissionThb: number; villaNetThb: number; creatorName: string; createdByUserId: string };
+type BookingRow = { _id: string; guestName: string; checkIn: string; subtotalThb: number; discountThb: number; totalChargedThb: number; creatorCommissionThb: number; villaNetThb: number; creatorName: string; createdByUserId: string };
 type DashboardData = { totals: Totals; series: Series[]; byVilla?: VillaRow[]; byUser?: UserRow[]; filterUsers?: Array<{ userId: string; name: string; bookingCount: number }>; bookings?: BookingRow[] };
 
 const emptyTotals: Totals = { bookingCount: 0, grossThb: 0, discountsThb: 0, chargedThb: 0, commissionsThb: 0, villaNetThb: 0 };
@@ -59,9 +59,12 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
     return new Map(userIds.map((userId, index) => [userId, userColorClasses[index % userColorClasses.length]]));
   }, [data?.filterUsers, data?.bookings]);
   const creatorColor = (userId: string) => creatorColors.get(userId);
+  const visiblePeople = data?.byUser?.filter(row => selectedCreators.length === 0 || selectedCreators.includes(row.userId));
+  const filteredTotals = selectedCreators.length ? visiblePeople?.reduce((sum, row) => ({ bookingCount: sum.bookingCount + row.bookingCount, grossThb: sum.grossThb + row.grossThb, discountsThb: sum.discountsThb + row.discountsThb, chargedThb: sum.chargedThb + row.chargedThb, commissionsThb: sum.commissionsThb + row.commissionsThb, villaNetThb: sum.villaNetThb + row.villaNetThb }), { ...emptyTotals }) : data?.totals;
   const trendSeries = useMemo(() => {
     const groups = new Map<string, Series>();
-    for (const row of data?.series ?? []) {
+    const source = selectedCreators.length ? (data?.bookings ?? []).filter(row => selectedCreators.includes(row.createdByUserId)).map(row => ({ date: row.checkIn, bookingCount: 1, grossThb: row.subtotalThb, discountsThb: row.discountThb, chargedThb: row.totalChargedThb, commissionsThb: row.creatorCommissionThb, villaNetThb: row.villaNetThb })) : data?.series ?? [];
+    for (const row of source) {
       const date = periodStart(row.date, granularity);
       const group = groups.get(date) ?? { date, ...emptyTotals };
       group.bookingCount += row.bookingCount;
@@ -73,7 +76,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
       groups.set(date, group);
     }
     return [...groups.values()].sort((a, b) => a.date.localeCompare(b.date));
-  }, [data?.series, granularity]);
+  }, [data?.series, data?.bookings, selectedCreators, granularity]);
   const periodFormatter = new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", {
     timeZone: "UTC",
     ...(granularity === "year" ? { year: "numeric" } : granularity === "month" ? { month: "short", year: "2-digit" } : { day: "2-digit", month: "2-digit" }),
@@ -99,7 +102,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
     discountsThb: { label: t({ en: "Discounts", th: "ส่วนลด" }), color: financialColours.discountsThb },
     chargedThb: { label: t({ en: "Booking total", th: "ยอดรวมการจอง" }), color: financialColours.chargedThb },
   } satisfies ChartConfig;
-  const totals = data?.totals ?? emptyTotals;
+  const totals = filteredTotals ?? emptyTotals;
   const cards: Array<{ label: Localized; value: string | number; icon: typeof CalendarCheck2 }> = ownOnly
     ? [
         { label: { en: "Your bookings", th: "การจองของคุณ" }, value: totals.bookingCount, icon: CalendarCheck2 },
@@ -203,7 +206,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
       {data?.byUser?.length ? (
           <div>
             <div className="grid gap-4">
-              {data.byUser.map((row) => <div key={row.userId} className="min-w-0"><p className="truncate text-sm font-medium">{localize(row.name)}</p><div className="mt-2 grid grid-cols-4 gap-1.5"><MobileMetric label={t({ en: "Bookings", th: "การจอง" })} value={row.bookingCount} /><MobileMetric label={t({ en: "Booking total", th: "ยอดรวมการจอง" })} value={formatThb(row.chargedThb, locale)} /><MobileMetric label={t({ en: "Commission", th: "ค่าคอมมิชชั่น" })} value={formatThb(row.commissionsThb, locale)} /><MobileMetric label={t({ en: "Net revenue", th: "รายได้สุทธิ" })} value={formatThb(row.villaNetThb, locale)} /></div></div>)}
+              {visiblePeople?.map((row) => <div key={row.userId} className="min-w-0"><p className="truncate text-sm font-medium">{localize(row.name)}</p><div className="mt-2 grid grid-cols-4 gap-1.5"><MobileMetric label={t({ en: "Bookings", th: "การจอง" })} value={row.bookingCount} /><MobileMetric label={t({ en: "Booking total", th: "ยอดรวมการจอง" })} value={formatThb(row.chargedThb, locale)} /><MobileMetric label={t({ en: "Commission", th: "ค่าคอมมิชชั่น" })} value={formatThb(row.commissionsThb, locale)} /><MobileMetric label={t({ en: "Net revenue", th: "รายได้สุทธิ" })} value={formatThb(row.villaNetThb, locale)} /></div></div>)}
             </div>
           </div>
       ) : null}

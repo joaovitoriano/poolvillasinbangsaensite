@@ -3,6 +3,12 @@ import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { permissions, requirePermission, requireUser, requireVillaAccess } from "./lib/auth";
 
+function accountingDay(asOf?: string) {
+  const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+  if (asOf !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(asOf) || new Date(`${asOf}T00:00:00Z`).toISOString().slice(0, 10) !== asOf)) throw new Error("Invalid date / วันที่ไม่ถูกต้อง");
+  return asOf && asOf < today ? asOf : today;
+}
+
 function totals(bookings: Doc<"bookings">[]) {
   return bookings.reduce(
     (sum, booking) => ({
@@ -27,7 +33,7 @@ function dailySeries(bookings: Doc<"bookings">[]) {
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([date, rows]) => ({ date, ...totals(rows) }));
 }
 
-async function villaBookings(ctx: Parameters<typeof requireUser>[0], villaId: Doc<"villas">["_id"], from: string, to: string) {
+async function villaBookings(ctx: Parameters<typeof requireUser>[0], villaId: Doc<"villas">["_id"], from: string, to: string, asOf?: string) {
   const rows = await ctx.db
     .query("bookings")
     .withIndex("by_villaId_and_checkIn", (q) => q.eq("villaId", villaId).gte("checkIn", from).lt("checkIn", to))
@@ -35,17 +41,17 @@ async function villaBookings(ctx: Parameters<typeof requireUser>[0], villaId: Do
   if (rows.length > 2000) {
     throw new Error("Too many bookings. Choose a shorter date range / มีการจองมากเกินไป กรุณาเลือกช่วงวันที่ให้สั้นลง");
   }
-  return rows.filter((booking) => booking.status === "confirmed");
+  return rows.filter((booking) => booking.status === "confirmed" && booking.checkIn <= accountingDay(asOf));
 }
 
 export const villa = query({
-  args: { villaId: v.id("villas"), from: v.string(), to: v.string() },
+  args: { villaId: v.id("villas"), from: v.string(), to: v.string(), asOf: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     if (user.role === "agent") throw new Error("Villa financials are unavailable for agents / เอเจนต์ไม่สามารถเข้าถึงการเงินของวิลล่าได้");
     await requireVillaAccess(ctx, user, args.villaId);
-    const bookings = await villaBookings(ctx, args.villaId, args.from, args.to);
+    const bookings = await villaBookings(ctx, args.villaId, args.from, args.to, args.asOf);
     const userIds = [...new Set(bookings.map((booking) => booking.createdByUserId))];
     const assignments = await ctx.db.query("villaAssignments")
       .withIndex("by_villaId_and_userId", (q) => q.eq("villaId", args.villaId)).take(1001);
@@ -86,7 +92,7 @@ export const villa = query({
 });
 
 export const portfolio = query({
-  args: { from: v.string(), to: v.string() },
+  args: { from: v.string(), to: v.string(), asOf: v.optional(v.string()) },
   returns: v.any(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -102,10 +108,10 @@ export const portfolio = query({
     }
     if (villas.length > 200) throw new Error("Too many villas / มีวิลล่ามากเกินไป");
     const allBookings = await Promise.all(villas.map(async villa => {
-      if (user.role !== "agent") return villaBookings(ctx, villa._id, args.from, args.to);
+      if (user.role !== "agent") return villaBookings(ctx, villa._id, args.from, args.to, args.asOf);
       const rows = await ctx.db.query("bookings").withIndex("by_villa_creator_checkIn", q => q.eq("villaId", villa._id).eq("createdByUserId", user._id).gte("checkIn", args.from).lt("checkIn", args.to)).take(2001);
       if (rows.length > 2000) throw new Error("Too many bookings. Choose a shorter date range / มีการจองมากเกินไป กรุณาเลือกช่วงวันที่ให้สั้นลง");
-      return rows.filter(row => row.status === "confirmed");
+      return rows.filter(row => row.status === "confirmed" && row.checkIn <= accountingDay(args.asOf));
     }));
     const flattened = allBookings.flat();
     if (user.role === "agent") {
