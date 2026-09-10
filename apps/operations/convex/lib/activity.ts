@@ -2,7 +2,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
 const tracked: Record<string, string[]> = {
-  bookings: ["checkIn", "checkOut", "status", "subtotalThb", "discountThb", "totalChargedThb", "creatorCommissionThb", "villaNetThb", "commissionMode", "commissionValue", "notes"],
+  bookings: ["checkIn", "checkOut", "status", "subtotalThb", "discountThb", "discountMode", "discountValue", "totalChargedThb", "creatorCommissionThb", "villaNetThb", "commissionMode", "commissionValue", "notes"],
   closedDates: ["from", "to", "notes", "status"],
   villas: ["name", "contactName", "contactPhone", "contactLineId", "archived"],
   pricingPresets: ["name", "nightlyPriceThb", "daysOfWeek", "dateFrom", "dateTo", "sortOrder", "active", "isDefault"],

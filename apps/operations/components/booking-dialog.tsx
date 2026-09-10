@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -18,8 +20,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { resolvePricingPreset } from "@/convex/lib/pricing";
+import { calculateDiscount, type DiscountMode } from "@/convex/lib/discount";
 import { calculateCommission, type CommissionMode } from "@/convex/lib/commission";
-import { formatThb } from "@/lib/format";
+import { formatDate, formatThb } from "@/lib/format";
 
 function nextDate(value: string) {
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -36,6 +39,7 @@ type BookingDialogFormState = {
   checkIn: string;
   checkOut: string;
   discount: string;
+  discountMode: DiscountMode;
   commission: string;
   commissionMode: CommissionMode;
 };
@@ -127,7 +131,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
   onOpenChange?: (open: boolean) => void;
   trigger?: boolean;
 }) {
-  const { t, localize } = useLocale();
+  const { locale, t, localize } = useLocale();
   const createBooking = useMutation(api.bookings.create);
   const updateBooking = useMutation(api.bookings.update);
   const cancelBooking = useMutation(api.bookings.cancel);
@@ -151,6 +155,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
     checkIn: todayKey(),
     checkOut: nextDate(todayKey()),
     discount: "0",
+    discountMode: "amount",
     commission: "0",
     commissionMode: "amount",
   });
@@ -195,7 +200,8 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
     setForm({
       checkIn: defaultCheckIn,
       checkOut: defaultCheckOut,
-      discount: String(booking?.discountThb ?? 0),
+      discount: String(booking?.discountValue ?? 0),
+      discountMode: booking?.discountMode ?? "amount",
       commission: String(booking ? booking.commissionValue : preference?.value ?? 0),
       commissionMode: booking ? booking.commissionMode : preference?.mode ?? "amount",
     });
@@ -242,13 +248,13 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
   const parsedDiscount = Number(form.discount);
   const parsedCommission = form.commission.trim() === "" ? 0 : Number(form.commission);
   const validDateRange = /^\d{4}-\d{2}-\d{2}$/.test(form.checkIn) && /^\d{4}-\d{2}-\d{2}$/.test(form.checkOut) && form.checkOut > form.checkIn;
-  const validDiscount = Number.isFinite(parsedDiscount) && parsedDiscount >= 0;
+  const validDiscount = Number.isFinite(parsedDiscount) && parsedDiscount >= 0 && (form.discountMode === "amount" || parsedDiscount <= 100);
   const validCommission = Number.isFinite(parsedCommission) && parsedCommission >= 0 && (form.commissionMode === "amount" || parsedCommission <= 100);
 
   const validationMessage = !validDateRange
     ? t({ en: "Choose a check-out date after check-in.", th: "เลือกวันเช็กเอาต์ให้อยู่หลังวันเช็กอิน" })
     : !validDiscount
-        ? t({ en: "Enter a discount of 0 or more.", th: "กรอกส่วนลดตั้งแต่ 0 บาทขึ้นไป" })
+        ? t({ en: "Enter a valid discount (percentage must be 0–100).", th: "กรอกส่วนลดให้ถูกต้อง (เปอร์เซ็นต์ต้องอยู่ระหว่าง 0–100)" })
         : !validCommission
           ? t({ en: "Enter a valid commission (percentage must be 0–100).", th: "กรอกค่าคอมมิชชั่นให้ถูกต้อง (เปอร์เซ็นต์ต้องอยู่ระหว่าง 0–100)" })
           : undefined;
@@ -289,14 +295,15 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
       };
     }
     const subtotalThb = nightlyPrices.reduce<number>((total, price) => total + (price ?? 0), 0);
-    const totalChargedThb = subtotalThb - parsedDiscount;
+    const discountThb = calculateDiscount(subtotalThb, form.discountMode, parsedDiscount);
+    const totalChargedThb = subtotalThb - discountThb;
     const discountIsValid = totalChargedThb >= 0;
     const commissionThb = calculateCommission(totalChargedThb, form.commissionMode, parsedCommission);
     const commissionIsValid = commissionThb <= totalChargedThb;
     return {
       nights: nightCount,
       subtotalThb,
-      discountThb: parsedDiscount,
+      discountThb,
       totalChargedThb,
       creatorCommissionThb: commissionThb,
       villaNetThb: discountIsValid && commissionIsValid ? totalChargedThb - commissionThb : 0,
@@ -307,10 +314,10 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
           ? t({ en: "Commission cannot exceed the booking total.", th: "ค่าคอมมิชชั่นต้องไม่เกินยอดรวมการจอง" })
           : undefined,
     };
-  }, [readOnly, open, validationMessage, presets, bookingId, booking, form.checkIn, form.checkOut, parsedDiscount, parsedCommission, form.commissionMode, t]);
+  }, [readOnly, open, validationMessage, presets, bookingId, booking, form.checkIn, form.checkOut, parsedDiscount, parsedCommission, form.commissionMode, form.discountMode, t]);
   const previewHasError = Boolean(preview && !preview.isValid);
   const isSubmitDisabled = !preview || previewHasError || !validDateRange || !validDiscount || !validCommission;
-  const dirty = booking ? guest.name.trim() !== booking.guestName.trim() || guest.phone.trim() !== booking.guestPhone.trim() || guest.lineId.trim() !== (booking.guestLineId ?? "").trim() || form.checkIn !== booking.checkIn || form.checkOut !== booking.checkOut || Number(form.discount) !== booking.discountThb || Number(form.commission) !== booking.commissionValue || form.commissionMode !== booking.commissionMode || notes.trim() !== (booking.notes ?? "").trim() : Boolean(closedDateId) || Boolean(guest.name.trim());
+  const dirty = booking ? guest.name.trim() !== booking.guestName.trim() || guest.phone.trim() !== booking.guestPhone.trim() || guest.lineId.trim() !== (booking.guestLineId ?? "").trim() || form.checkIn !== booking.checkIn || form.checkOut !== booking.checkOut || Number(form.discount) !== booking.discountValue || form.discountMode !== booking.discountMode || Number(form.commission) !== booking.commissionValue || form.commissionMode !== booking.commissionMode || notes.trim() !== (booking.notes ?? "").trim() : Boolean(closedDateId) || Boolean(guest.name.trim());
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (readOnly || !dirty) return;
@@ -325,13 +332,18 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
         guestLineId: guest.lineId || undefined,
         checkIn: form.checkIn,
         checkOut: form.checkOut,
-        discountThb: parsedDiscount,
+        discountMode: form.discountMode,
+        discountValue: parsedDiscount,
         commissionMode: form.commissionMode,
         commissionValue: parsedCommission,
         notes: String(data.get("notes")) || undefined,
       };
       if (bookingId) await updateBooking({ bookingId, ...values });
       else await createBooking({ villaId, closedDateId, ...values });
+      const dates = `${formatDate(form.checkIn, locale)} – ${formatDate(form.checkOut, locale)}`;
+      toast.success(t(bookingId
+        ? { en: `${dates}: booking successfully updated.`, th: `${dates}: อัปเดตการจองสำเร็จแล้ว` }
+        : { en: `${dates}: booking successfully created.`, th: `${dates}: สร้างการจองสำเร็จแล้ว` }));
       setOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? localize(cause.message) : t({ en: "Could not create booking.", th: "ไม่สามารถสร้างการจองได้" }));
@@ -341,11 +353,13 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
   }
 
   async function confirmCancellation() {
-    if (!bookingId || !canCancel || cancelling || saving) return;
+    if (!bookingId || !booking || !canCancel || cancelling || saving) return;
     setCancelling(true);
     setCancelError("");
     try {
       await cancelBooking({ bookingId });
+      const dates = `${formatDate(booking.checkIn, locale)} – ${formatDate(booking.checkOut, locale)}`;
+      toast.success(t({ en: `${dates}: booking cancelled.`, th: `${dates}: ยกเลิกการจองแล้ว` }));
       setConfirmCancelOpen(false);
       setOpen(false);
     } catch (cause) {
@@ -440,15 +454,24 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
           </div>
           <div className="grid grid-cols-2 items-end gap-3">
             <div className="grid min-w-0 gap-1.5">
-              <Label htmlFor="discount">{t({ en: "Discount (฿)", th: "ส่วนลด (฿)" })}</Label>
+              <Label htmlFor="discount">{t(form.discountMode === "amount" ? { en: "Discount (฿)", th: "ส่วนลด (฿)" } : { en: "Discount (%)", th: "ส่วนลด (%)" })}</Label>
+              <div className="relative">
               <Input
                 id="discount"
                 name="discount"
                 type="number"
+                inputMode="decimal"
                 min="0"
+                max={form.discountMode === "percentage" ? 100 : undefined}
+                step="0.01"
+                className="pr-10"
                 value={form.discount}
                 onChange={(event) => setForm((current) => ({ ...current, discount: event.target.value }))}
               />
+              <button type="button" className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground" onClick={() => setForm((current) => ({ ...current, discountMode: current.discountMode === "amount" ? "percentage" : "amount" }))} aria-label={t(form.discountMode === "amount" ? { en: "Switch to percentage discount", th: "เปลี่ยนเป็นส่วนลดแบบเปอร์เซ็นต์" } : { en: "Switch to fixed discount", th: "เปลี่ยนเป็นส่วนลดแบบจำนวนเงิน" })}>
+                {form.discountMode === "amount" ? <span aria-hidden="true">฿</span> : <Percent className="size-4" />}
+              </button>
+              </div>
             </div>
             <div className="grid min-w-0 gap-1.5">
               <Label htmlFor="commission">{t(readOnly ? (form.commissionMode === "amount" ? { en: "Commission (฿)", th: "ค่าคอมมิชชัน (฿)" } : { en: "Commission (%)", th: "ค่าคอมมิชชัน (%)" }) : (form.commissionMode === "amount" ? { en: "Your commission (฿)", th: "ค่าคอมมิชชั่นของคุณ (฿)" } : { en: "Your commission (%)", th: "ค่าคอมมิชชั่นของคุณ (%)" }))}</Label>
@@ -457,6 +480,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
                 id="commission"
                 name="commission"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 max={form.commissionMode === "percentage" ? 100 : undefined}
                 step="0.01"

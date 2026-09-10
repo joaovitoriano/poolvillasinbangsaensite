@@ -24,6 +24,7 @@ const fields: Record<string, { en: string; th: string }> = {
   checkIn: { en: "Check-in", th: "เช็กอิน" }, checkOut: { en: "Check-out", th: "เช็กเอาต์" },
   from: { en: "From", th: "จาก" }, to: { en: "To", th: "ถึง" }, status: { en: "Status", th: "สถานะ" },
   discountThb: { en: "Discount", th: "ส่วนลด" }, totalChargedThb: { en: "Booking total", th: "ยอดรวมการจอง" },
+  discountMode: { en: "Discount type", th: "ประเภทส่วนลด" }, discountValue: { en: "Discount value", th: "ค่าส่วนลด" },
   commissionMode: { en: "Commission type", th: "ประเภทค่าคอมมิชชัน" }, commissionValue: { en: "Commission", th: "ค่าคอมมิชชัน" },
   notes: { en: "Notes", th: "หมายเหตุ" }, name: { en: "Name", th: "ชื่อ" }, contactName: { en: "Owner name", th: "ชื่อเจ้าของ" },
   contactPhone: { en: "Phone", th: "โทรศัพท์" }, contactLineId: { en: "LINE ID", th: "ไลน์ไอดี" },
@@ -50,8 +51,8 @@ export function ActivityTable() {
     if (!value) return "—";
     if (["checkIn", "checkOut", "from", "to", "dateFrom", "dateTo"].includes(field) && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value, locale);
     if (field.endsWith("Thb") && Number.isFinite(Number(value))) return formatThb(Number(value), locale);
-    if (field === "commissionValue") {
-      const mode = row.changes.find(change => change.field === "commissionMode")?.[side];
+    if (field === "commissionValue" || field === "discountValue") {
+      const mode = row.changes.find(change => change.field === (field === "discountValue" ? "discountMode" : "commissionMode"))?.[side];
       if (mode === "percentage") return `${value}%`;
       if (mode === "amount") return formatThb(Number(value), locale);
     }
@@ -60,7 +61,7 @@ export function ActivityTable() {
       const days = locale === "th" ? ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       try { return (JSON.parse(value) as number[]).map(day => days[day]).join(", ") || "—"; } catch { return value; }
     }
-    return ["reason", "role", "status", "active", "archived", "isDefault", "commissionMode"].includes(field) && values[value] ? t(values[value]) : value;
+    return ["reason", "role", "status", "active", "archived", "isDefault", "commissionMode", "discountMode"].includes(field) && values[value] ? t(values[value]) : value;
   };
   return <Card className="min-w-0"><CardHeader><CardTitle>{t({ en: "Activity", th: "กิจกรรม" })}</CardTitle></CardHeader><CardContent className="px-0">
     {status === "LoadingFirstPage" && <Skeleton className="mx-4 h-24" />}

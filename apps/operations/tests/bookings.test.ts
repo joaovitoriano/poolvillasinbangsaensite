@@ -16,7 +16,7 @@ describe("booking validation and atomicity", () => {
     expect(await f.agent.query(api.commissionPreferences.get, { villaId: f.villaId })).toMatchObject({ mode: "percentage", value: 10 });
     expect(await f.other.query(api.commissionPreferences.get, { villaId: f.villaId })).toBeNull();
   });
-  it.each(["villaId", "guestName", "guestPhone", "checkIn", "checkOut", "discountThb", "commissionMode", "commissionValue"])("rejects missing %s without writes", async field => {
+  it.each(["villaId", "guestName", "guestPhone", "checkIn", "checkOut", "discountMode", "discountValue", "commissionMode", "commissionValue"])("rejects missing %s without writes", async field => {
     const f = await setup(), before = await f.counts();
     const args: Record<string, unknown> = { ...booking, villaId: f.villaId }; delete args[field];
     await expect(f.agent.mutation(api.bookings.create, args as FunctionArgs<typeof api.bookings.create>)).rejects.toThrow();
@@ -24,9 +24,9 @@ describe("booking validation and atomicity", () => {
   });
   it.each([
     { guestName: " " }, { checkIn: "2030-09-01" }, { checkOut: "2030-09-20" }, { checkOut: "2030-02-30" },
-    { checkOut: "2031-01-01" }, { discountThb: -1 }, { discountThb: 6001 }, { commissionValue: -1 }, { commissionValue: 101 },
-    { discountThb: "500" }, { commissionValue: null }, { commissionMode: "random" }, { extraField: true },
-    { discountThb: NaN }, { discountThb: Infinity }, { commissionValue: Infinity },
+    { checkOut: "2031-01-01" }, { discountValue: -1 }, { discountValue: 6001 }, { commissionValue: -1 }, { commissionValue: 101 },
+    { discountValue: "500" }, { commissionValue: null }, { commissionMode: "random" }, { extraField: true },
+    { discountValue: NaN }, { discountValue: Infinity }, { commissionValue: Infinity },
   ])("rejects invalid input %j without side effects", async patch => {
     const f = await setup(), before = await f.counts();
     await expect(f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId, ...patch } as FunctionArgs<typeof api.bookings.create>)).rejects.toThrow();

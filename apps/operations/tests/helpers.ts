@@ -6,7 +6,7 @@ import { permissions } from "../convex/lib/auth";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 export const period = { from: "2030-01-01", to: "2031-01-01" };
-export const booking = { guestName: "Araya Wong", guestPhone: "081-000-2002", guestLineId: "araya.w", checkIn: "2030-09-20", checkOut: "2030-09-22", discountThb: 500, commissionMode: "percentage" as const, commissionValue: 10 };
+export const booking = { guestName: "Araya Wong", guestPhone: "081-000-2002", guestLineId: "araya.w", checkIn: "2030-09-20", checkOut: "2030-09-22", discountMode: "amount" as const, discountValue: 500, commissionMode: "percentage" as const, commissionValue: 10 };
 export async function setup() {
   const t = convexTest(schema, modules);
   const roles = ["admin", "owner", "agent", "other"] as const;

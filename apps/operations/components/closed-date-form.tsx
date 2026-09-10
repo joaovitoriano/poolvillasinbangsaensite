@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+
+import { formatDate } from "@/lib/format";
 import { useState, type FormEvent } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,7 +19,7 @@ export function ClosedDateForm({ villaId, bookingId, closedDateId, initialFrom, 
   initialFrom: string; initialTo: string; initialNotes?: string; hidden: boolean; canManage?: boolean;
   onSaved: () => void; onBusy: (busy: boolean) => void;
 }) {
-  const { t, localize } = useLocale();
+  const { locale, t, localize } = useLocale();
   const save = useMutation(api.closedDates.save);
   const cancel = useMutation(api.closedDates.cancel);
   const [from, setFrom] = useState(initialFrom);
@@ -32,6 +35,12 @@ export function ClosedDateForm({ villaId, bookingId, closedDateId, initialFrom, 
     try {
       if (action === "cancel" && closedDateId) await cancel({ closedDateId });
       else await save({ villaId, bookingId, closedDateId, from, to, notes, confirmCancellation: Boolean(bookingId && confirmation === "save") });
+      const dates = `${formatDate(action === "cancel" ? initialFrom : from, locale)} – ${formatDate(action === "cancel" ? initialTo : to, locale)}`;
+      toast.success(t(action === "cancel"
+        ? { en: `${dates}: closed date cancelled.`, th: `${dates}: ยกเลิกวันที่ปิดแล้ว` }
+        : closedDateId
+          ? { en: `${dates}: closed date successfully updated.`, th: `${dates}: อัปเดตวันที่ปิดสำเร็จแล้ว` }
+          : { en: `${dates}: closed date successfully created.`, th: `${dates}: สร้างวันที่ปิดสำเร็จแล้ว` }));
       onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? localize(cause.message) : t({ en: "Could not save closed date.", th: "ไม่สามารถบันทึกวันที่ปิดได้" }));

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { useMutation, useQuery } from "convex/react";
 import { ArrowUpRight, Building2, UserRound, MessageCircle, Phone, Plus } from "lucide-react";
 import Link from "next/link";
@@ -53,6 +55,7 @@ function CreateVillaDialog() {
         contactPhone: String(data.get("contactPhone")),
         defaultNightlyPriceThb: Number(data.get("price")),
       });
+      toast.success(t({ en: `${String(data.get("name"))}: villa created.`, th: `${String(data.get("name"))}: สร้างวิลล่าแล้ว` }));
       setOpen(false);
     } catch (cause) { setError(cause instanceof Error ? localize(cause.message) : t({ en: "Could not create villa.", th: "ไม่สามารถสร้างวิลล่าได้" })); }
     finally { setSaving(false); }
@@ -68,7 +71,7 @@ function CreateVillaDialog() {
             <div className="grid gap-1.5"><Label htmlFor="contact-name">{t({ en: "Owner name", th: "ชื่อเจ้าของ" })}</Label><Input id="contact-name" name="contactName" /></div>
             <div className="grid gap-1.5"><Label htmlFor="contact-phone">{t({ en: "Phone", th: "โทรศัพท์" })}</Label><PhoneInput id="contact-phone" name="contactPhone" /></div>
             <div className="grid gap-1.5"><Label htmlFor="contact-line-id">{t({ en: "LINE ID", th: "ไอดีไลน์" })}</Label><Input id="contact-line-id" name="contactLineId" autoCapitalize="none" /></div>
-            <div className="grid gap-1.5"><Label htmlFor="starting-price">{t({ en: "Nightly price (฿)", th: "ราคาต่อคืน (฿)" })}</Label><Input id="starting-price" name="price" type="number" min="0" required /></div>
+            <div className="grid gap-1.5"><Label htmlFor="starting-price">{t({ en: "Nightly price (฿)", th: "ราคาต่อคืน (฿)" })}</Label><Input id="starting-price" name="price" type="number" step="0.01" min="0" inputMode="decimal" required /></div>
           </div>
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           <DialogFooter className="[&>button]:w-full"><Button type="submit" disabled={saving || !changes.dirty}>{saving ? t({ en: "Creating…", th: "กำลังสร้าง…" }) : t({ en: "Create villa", th: "สร้างวิลล่า" })}</Button></DialogFooter>

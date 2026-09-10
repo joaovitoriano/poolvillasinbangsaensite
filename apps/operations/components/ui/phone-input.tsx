@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 
 function formatPhone(value: string) {
   const digits = value.replace(/\D/g, "");
-  return [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6)].filter(Boolean).join("-");
+  return (value.startsWith("+") ? "+" : "") + [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6)].filter(Boolean).join("-");
 }
 
 type PhoneInputProps = Omit<ComponentProps<typeof Input>, "type" | "inputMode" | "value" | "defaultValue" | "ref"> & {
@@ -31,7 +31,7 @@ export function PhoneInput({ value, defaultValue = "", onChange, ...props }: Pho
       {...props}
       ref={inputRef}
       type="tel"
-      inputMode="numeric"
+      inputMode="tel"
       value={displayedValue}
       onChange={(event) => {
         const input = event.currentTarget;
@@ -42,7 +42,7 @@ export function PhoneInput({ value, defaultValue = "", onChange, ...props }: Pho
 
         // Deleting beside a separator must remove a digit rather than trapping
         // the cursor behind a dash that the mask immediately inserts again.
-        if (digits === displayedValue.replace(/\D/g, "") && raw.length < displayedValue.length) {
+        if (raw.startsWith("+") === displayedValue.startsWith("+") && digits === displayedValue.replace(/\D/g, "") && raw.length < displayedValue.length) {
           const index = inputType === "deleteContentBackward" ? digitsBeforeCaret - 1 : digitsBeforeCaret;
           if (index >= 0 && index < digits.length) {
             digits = digits.slice(0, index) + digits.slice(index + 1);
@@ -50,8 +50,8 @@ export function PhoneInput({ value, defaultValue = "", onChange, ...props }: Pho
           }
         }
 
-        const formatted = formatPhone(digits);
-        let caret = 0;
+        const formatted = formatPhone((raw.startsWith("+") ? "+" : "") + digits);
+        let caret = raw.startsWith("+") && (input.selectionStart ?? 0) > 0 ? 1 : 0;
         let seen = 0;
         while (caret < formatted.length && seen < digitsBeforeCaret) {
           if (/\d/.test(formatted[caret])) seen++;

@@ -3,6 +3,7 @@ import type { MutationCtx } from "../_generated/server";
 import { resolvePricingPreset } from "./pricing";
 import { saveGuest, type GuestDetails } from "./guests";
 
+import { calculateDiscount, type DiscountMode } from "./discount";
 import { calculateCommission, type CommissionMode } from "./commission";
 
 const MAX_BOOKING_NIGHTS = 90;
@@ -10,7 +11,8 @@ const MAX_BOOKING_NIGHTS = 90;
 export type BookingDetails = GuestDetails & {
   checkIn: string;
   checkOut: string;
-  discountThb: number;
+  discountMode: DiscountMode;
+  discountValue: number;
   commissionMode: CommissionMode;
   commissionValue: number;
   notes?: string;
@@ -84,8 +86,9 @@ export async function createBookingRecord(
   await assertAvailable(ctx, villaId, dates);
   const nights = await priceNights(ctx, villaId, dates);
   const subtotalThb = nights.reduce((sum, night) => sum + night.nightlyPriceThb, 0);
-  const creatorCommissionThb = calculateCommission(subtotalThb - details.discountThb, details.commissionMode, details.commissionValue);
-  const totals = financials(subtotalThb, details.discountThb, creatorCommissionThb);
+  const discountThb = calculateDiscount(subtotalThb, details.discountMode, details.discountValue);
+  const creatorCommissionThb = calculateCommission(subtotalThb - discountThb, details.commissionMode, details.commissionValue);
+  const totals = financials(subtotalThb, discountThb, creatorCommissionThb);
   const guestId = await saveGuest(ctx, details, now);
   const bookingId = await ctx.db.insert("bookings", {
     villaId,
@@ -94,7 +97,9 @@ export async function createBookingRecord(
     checkOut: details.checkOut,
     status: "confirmed",
     subtotalThb,
-    discountThb: details.discountThb,
+    discountThb,
+    discountMode: details.discountMode,
+    discountValue: details.discountValue,
     totalChargedThb: totals.totalChargedThb,
     creatorCommissionThb,
     commissionMode: details.commissionMode,
@@ -115,8 +120,9 @@ export async function updateBookingRecord(ctx: MutationCtx, booking: Doc<"bookin
   await assertAvailable(ctx, booking.villaId, dates, booking._id);
   const nights = await priceNights(ctx, booking.villaId, dates);
   const subtotalThb = nights.reduce((sum, night) => sum + night.nightlyPriceThb, 0);
-  const creatorCommissionThb = calculateCommission(subtotalThb - details.discountThb, details.commissionMode, details.commissionValue);
-  const totals = financials(subtotalThb, details.discountThb, creatorCommissionThb);
+  const discountThb = calculateDiscount(subtotalThb, details.discountMode, details.discountValue);
+  const creatorCommissionThb = calculateCommission(subtotalThb - discountThb, details.commissionMode, details.commissionValue);
+  const totals = financials(subtotalThb, discountThb, creatorCommissionThb);
   const guestId = await saveGuest(ctx, { ...details, guestId: details.guestId ?? booking.guestId }, now);
   const oldNights = await ctx.db
     .query("bookingNights")
@@ -129,7 +135,9 @@ export async function updateBookingRecord(ctx: MutationCtx, booking: Doc<"bookin
     checkIn: details.checkIn,
     checkOut: details.checkOut,
     subtotalThb,
-    discountThb: details.discountThb,
+    discountThb,
+    discountMode: details.discountMode,
+    discountValue: details.discountValue,
     totalChargedThb: totals.totalChargedThb,
     creatorCommissionThb,
     commissionMode: details.commissionMode,

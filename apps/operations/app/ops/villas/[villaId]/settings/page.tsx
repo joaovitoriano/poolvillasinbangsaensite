@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import {
   closestCenter,
   DndContext,
@@ -49,6 +51,7 @@ function GeneralSettings({ villaId }: { villaId: Id<"villas"> }) {
     try {
     await update({ villaId, name: String(data.get("name")), contactName: String(data.get("contactName")), contactLineId: String(data.get("contactLineId")), contactPhone: String(data.get("contactPhone")) });
     changes.saved(form, submitted);
+    toast.success(t({ en: `${String(data.get("name"))}: villa settings saved.`, th: `${String(data.get("name"))}: บันทึกการตั้งค่าวิลล่าแล้ว` }));
     } finally { setBusy(false); }
   }
   if (!villa) return null;
@@ -144,6 +147,7 @@ function PricingSettings({ villaId }: { villaId: Id<"villas"> }) {
     setSaveError("");
     try {
       await save({ villaId, name: String(data.get("name")), nightlyPriceThb: Number(data.get("price")), daysOfWeek: scheduleMode === "days" ? data.getAll("days").map(Number) : [], dateFrom: scheduleMode === "dates" ? String(data.get("dateFrom")) : undefined, dateTo: scheduleMode === "dates" ? String(data.get("dateTo")) : undefined, isDefault: false });
+      toast.success(t({ en: `${String(data.get("name"))}: pricing preset saved.`, th: `${String(data.get("name"))}: บันทึกชุดราคาแล้ว` }));
       form.reset();
       setDialogOpen(false);
     } catch (error) {
@@ -166,6 +170,7 @@ function PricingSettings({ villaId }: { villaId: Id<"villas"> }) {
     setReorderError(false);
     try {
       await reorder({ villaId, presetIds: normalized.map((preset) => preset._id) });
+      toast.success(t({ en: "Pricing preset order saved.", th: "บันทึกลำดับชุดราคาแล้ว" }));
       setLocalOrder(null);
     } catch {
       setLocalOrder(null);
@@ -178,6 +183,7 @@ function PricingSettings({ villaId }: { villaId: Id<"villas"> }) {
     setDeleteError(false);
     try {
       await removePreset({ presetId: presetToDelete._id });
+      toast.success(t({ en: `${presetToDelete.name}: pricing preset deleted.`, th: `${presetToDelete.name}: ลบชุดราคาแล้ว` }));
       setLocalOrder(null);
       setPresetToDelete(null);
     } catch {
@@ -198,7 +204,7 @@ function PricingSettings({ villaId }: { villaId: Id<"villas"> }) {
               <DialogHeader><DialogTitle>{t({ en: "Add preset", th: "เพิ่มชุดราคา" })}</DialogTitle></DialogHeader>
               <div className="grid gap-3">
                 <div className="grid gap-1.5"><Label htmlFor="preset-name">{t({ en: "Preset name", th: "ชื่อชุดราคา" })}</Label><Input id="preset-name" name="name" required /></div>
-                <div className="grid gap-1.5"><Label htmlFor="preset-price">{t({ en: "Nightly price (฿)", th: "ราคาต่อคืน (฿)" })}</Label><Input id="preset-price" name="price" type="number" min="0" inputMode="decimal" required /></div>
+                <div className="grid gap-1.5"><Label htmlFor="preset-price">{t({ en: "Nightly price (฿)", th: "ราคาต่อคืน (฿)" })}</Label><Input id="preset-price" name="price" type="number" step="0.01" min="0" inputMode="decimal" required /></div>
                 <Tabs value={scheduleMode} onValueChange={(value) => { if (value === "days" || value === "dates") { setScheduleMode(value); setSaveError(""); } }}>
                   <TabsList className="w-full">
                     <TabsTrigger value="days">{t({ en: "Days", th: "วัน" })}</TabsTrigger>
@@ -253,9 +259,9 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
   const team = useQuery(api.team.listForVilla, { villaId });
   const invite = useAction(api.invitations.send);
   const [role, setRole] = useState<"owner" | "agent">("agent");
-  const [sent, setSent] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!changes.dirty) return; const form = event.currentTarget; const data = new FormData(form); await invite({ villaId, email: String(data.get("email")), role }); form.reset(); changes.saved(form, changes.capture(form)); setSent(true); setTimeout(() => setSent(false), 1800); }
+  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!changes.dirty) return; const form = event.currentTarget; const data = new FormData(form); await invite({ villaId, email: String(data.get("email")), role }); form.reset(); changes.saved(form, changes.capture(form)); toast.success(t({ en: `Invitation sent to ${String(data.get("email"))}.`, th: `ส่งคำเชิญไปยัง ${String(data.get("email"))} แล้ว` })); setDialogOpen(false); }
   return (
     <section className="grid gap-3">
       <header className="flex items-center justify-between gap-3">
@@ -269,7 +275,7 @@ function TeamSettings({ villaId }: { villaId: Id<"villas"> }) {
                 <div className="grid gap-1.5"><Label htmlFor="invite-email">{t({ en: "Email", th: "อีเมล" })}</Label><Input id="invite-email" name="email" type="email" required /></div>
                 <div className="grid gap-1.5"><Label>{t({ en: "Role", th: "บทบาท" })}</Label><Select value={role} onValueChange={(value) => setRole(value as "owner" | "agent")}><SelectTrigger className="w-full"><SelectValue>{t(role === "owner" ? { en: "Owner", th: "เจ้าของ" } : { en: "Agent", th: "เอเจนต์" })}</SelectValue></SelectTrigger><SelectContent><SelectItem value="owner">{t({ en: "Owner", th: "เจ้าของ" })}</SelectItem><SelectItem value="agent">{t({ en: "Agent", th: "เอเจนต์" })}</SelectItem></SelectContent></Select></div>
               </div>
-              <DialogFooter><Button className="w-full" type="submit" disabled={!changes.dirty}>{sent ? t({ en: "Invitation sent", th: "ส่งคำเชิญแล้ว" }) : t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
+              <DialogFooter><Button className="w-full" type="submit" disabled={!changes.dirty}>{t({ en: "Send invitation", th: "ส่งคำเชิญ" })}</Button></DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

@@ -124,6 +124,8 @@ export default defineSchema({
     status: v.union(v.literal("confirmed"), v.literal("cancelled")),
     subtotalThb: v.number(),
     discountThb: v.number(),
+    discountMode: v.union(v.literal("amount"), v.literal("percentage")),
+    discountValue: v.number(),
     totalChargedThb: v.number(),
     creatorCommissionThb: v.number(),
     commissionMode: v.union(v.literal("amount"), v.literal("percentage")),

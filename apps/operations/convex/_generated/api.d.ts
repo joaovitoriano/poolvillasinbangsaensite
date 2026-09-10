@@ -21,6 +21,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_bookingRecords from "../lib/bookingRecords.js";
 import type * as lib_closedDates from "../lib/closedDates.js";
 import type * as lib_commission from "../lib/commission.js";
+import type * as lib_discount from "../lib/discount.js";
 import type * as lib_guests from "../lib/guests.js";
 import type * as lib_pricing from "../lib/pricing.js";
 import type * as overview from "../overview.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/bookingRecords": typeof lib_bookingRecords;
   "lib/closedDates": typeof lib_closedDates;
   "lib/commission": typeof lib_commission;
+  "lib/discount": typeof lib_discount;
   "lib/guests": typeof lib_guests;
   "lib/pricing": typeof lib_pricing;
   overview: typeof overview;

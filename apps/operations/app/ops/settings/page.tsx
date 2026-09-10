@@ -1,4 +1,6 @@
 "use client";
+
+import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
 import { api } from "@/convex/_generated/api";
@@ -20,7 +22,7 @@ export default function PersonalSettingsPage() {
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!changes.dirty || busy) return; const form = event.currentTarget; const submitted = changes.capture(form); const data = new FormData(event.currentTarget); setBusy(true); setMessage("");
-    try { await save({ name: String(data.get("name")), phone: String(data.get("phone")), lineId: String(data.get("lineId")) }); changes.saved(form, submitted); }
+    try { await save({ name: String(data.get("name")), phone: String(data.get("phone")), lineId: String(data.get("lineId")) }); changes.saved(form, submitted); toast.success(t({ en: "Account details saved.", th: "บันทึกข้อมูลบัญชีแล้ว" })); }
     catch (error) { setMessage(error instanceof Error ? localize(error.message) : t({ en: "Could not save.", th: "ไม่สามารถบันทึกได้" })); }
     finally { setBusy(false); }
   }

@@ -4,6 +4,7 @@ import { AuthKitProvider, useAccessToken, useAuth } from "@workos-inc/authkit-ne
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { useCallback, useState } from "react";
 import { LocaleProvider } from "@/components/locale-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 function useWorkOSConvexAuth() {
@@ -35,6 +36,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <ConvexAuthProvider>
         <LocaleProvider>
           <TooltipProvider>{children}</TooltipProvider>
+          <Toaster />
         </LocaleProvider>
       </ConvexAuthProvider>
     </AuthKitProvider>
