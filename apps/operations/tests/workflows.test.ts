@@ -16,7 +16,7 @@ it("requires confirmation for conversion and rolls cancellation back if another 
   const f = await setup();
   const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
   await f.other.mutation(api.bookings.create, { ...booking, villaId: f.villaId, checkIn: "2030-09-22", checkOut: "2030-09-24" });
-  const args = { villaId: f.villaId, bookingId, from: "2030-09-20", to: "2030-09-22", confirmCancellation: false };
+  const args = { villaId: f.villaId, bookingId, from: "2030-09-20", to: "2030-09-22", deleteCommission: false, confirmCancellation: false };
   const before = await f.counts();
   await expect(f.agent.mutation(api.closedDates.save, args)).rejects.toThrow();
   await expect(f.agent.mutation(api.closedDates.save, { ...args, confirmCancellation: true })).rejects.toThrow();
@@ -34,7 +34,7 @@ it("requires confirmation for conversion and rolls cancellation back if another 
 
 it("updates a closure as one activity event and converts it to a booking", async () => {
   const f = await setup();
-  const args = { villaId: f.villaId, from: "2030-09-20", to: "2030-09-21", confirmCancellation: false };
+  const args = { villaId: f.villaId, from: "2030-09-20", to: "2030-09-21", deleteCommission: false, confirmCancellation: false };
   const closedDateId = await f.agent.mutation(api.closedDates.save, args);
   await expect(f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId })).rejects.toThrow();
   const before = (await f.counts()).activity;
@@ -47,7 +47,7 @@ it("updates a closure as one activity event and converts it to a booking", async
   expect((await f.counts()).closedNights).toBe(0);
 });
 
-it("scopes financial totals by role and excludes cancelled bookings and out-of-period check-ins", async () => {
+it("scopes financial totals by role and excludes cancelled bookings and out-of-period creation dates", async () => {
   const f = await setup();
   const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
   await f.other.mutation(api.bookings.create, { ...booking, villaId: f.villaId, checkIn: "2030-09-22", checkOut: "2030-09-24" });
@@ -57,7 +57,7 @@ it("scopes financial totals by role and excludes cancelled bookings and out-of-p
   expect((await f.owner.query(api.financials.portfolio, period)).totals).toMatchObject({ bookingCount: 2, chargedThb: 11000 });
   expect((await f.agent.query(api.financials.portfolio, period)).totals).toEqual({ bookingCount: 1, chargedThb: 5500, commissionsThb: 550 });
   expect((await f.admin.query(api.financials.portfolio, { from: "2030-09-21", to: "2030-09-22" })).totals.bookingCount).toBe(0);
-  await f.agent.mutation(api.bookings.cancel, { bookingId });
+  await f.agent.mutation(api.bookings.cancel, { bookingId, deleteCommission: true });
   expect((await f.agent.query(api.financials.portfolio, period)).totals.bookingCount).toBe(0);
   expect((await f.admin.query(api.financials.portfolio, period)).totals.bookingCount).toBe(2);
 });
@@ -83,19 +83,19 @@ it("keeps recurring days and date-range pricing exclusive and uses matching rate
   expect(await f.agent.query(api.bookings.get, { bookingId })).toMatchObject({ subtotalThb: 7000, totalChargedThb: 6500, creatorCommissionThb: 650 });
 });
 
-it("recognizes revenue on Bangkok check-in day and moves it with amendments", async () => {
+it("recognizes revenue immediately and keeps its creation date through amendments", async () => {
   const f = await setup();
   const { bookingId } = await f.agent.mutation(api.bookings.create, { ...booking, villaId: f.villaId });
   const count = async () => (await f.admin.query(api.financials.portfolio, period)).totals.bookingCount;
   vi.setSystemTime(new Date("2030-09-19T16:59:59Z"));
-  expect(await count()).toBe(0);
+  expect(await count()).toBe(1);
   vi.setSystemTime(new Date("2030-09-19T17:00:00Z"));
   expect(await count()).toBe(1);
   expect((await f.owner.query(api.financials.villa, { villaId: f.villaId, ...period })).totals.bookingCount).toBe(1);
   await f.agent.mutation(api.bookings.update, { ...booking, bookingId, checkIn: "2030-12-22", checkOut: "2030-12-24" });
-  expect(await count()).toBe(0);
+  expect(await count()).toBe(1);
   vi.setSystemTime(new Date("2030-12-21T17:00:00Z"));
   expect(await count()).toBe(1);
-  await f.agent.mutation(api.bookings.cancel, { bookingId });
+  await f.agent.mutation(api.bookings.cancel, { bookingId, deleteCommission: true });
   expect(await count()).toBe(0);
 });

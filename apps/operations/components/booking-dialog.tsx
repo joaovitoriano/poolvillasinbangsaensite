@@ -144,6 +144,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
   const [saving, setSaving] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [deleteCommission, setDeleteCommission] = useState(false);
   const [cancelError, setCancelError] = useState("");
   const dangerTitleId = useId();
   const [error, setError] = useState("");
@@ -357,7 +358,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
     setCancelling(true);
     setCancelError("");
     try {
-      await cancelBooking({ bookingId });
+      await cancelBooking({ bookingId, deleteCommission });
       const dates = `${formatDate(booking.checkIn, locale)} – ${formatDate(booking.checkOut, locale)}`;
       toast.success(t({ en: `${dates}: booking cancelled.`, th: `${dates}: ยกเลิกการจองแล้ว` }));
       setConfirmCancelOpen(false);
@@ -513,6 +514,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
               <Dialog open={confirmCancelOpen} onOpenChange={(nextOpen) => {
                 if (!cancelling) {
                   setCancelError("");
+                  if (nextOpen) setDeleteCommission(false);
                   setConfirmCancelOpen(nextOpen);
                 }
               }}>
@@ -524,6 +526,7 @@ export function BookingDialog({ villaId, bookingId, closedDateId, initialDate, o
                     <DialogTitle>{t({ en: "Are you sure?", th: "คุณแน่ใจหรือไม่?" })}</DialogTitle>
                     <DialogDescription>{t({ en: "Cancelling this booking will make its dates available again.", th: "เมื่อยกเลิกการจองนี้ วันที่เข้าพักจะกลับมาว่างอีกครั้ง" })}</DialogDescription>
                   </DialogHeader>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={deleteCommission} disabled={cancelling} onChange={event => setDeleteCommission(event.target.checked)} />{t({ en: "Delete commission?", th: "ลบค่าคอมมิชชันหรือไม่?" })}</label>
                   {cancelError && <p role="alert" className="text-sm text-destructive">{cancelError}</p>}
                   <DialogFooter>
                     <Button type="button" variant="outline" autoFocus disabled={cancelling} onClick={() => setConfirmCancelOpen(false)}>{t({ en: "No", th: "ไม่" })}</Button>

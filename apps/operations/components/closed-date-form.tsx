@@ -25,6 +25,7 @@ export function ClosedDateForm({ villaId, bookingId, closedDateId, initialFrom, 
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
   const [notes, setNotes] = useState(initialNotes ?? "");
+  const [deleteCommission, setDeleteCommission] = useState(false);
   const [confirmation, setConfirmation] = useState<"save" | "cancel" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -34,22 +35,23 @@ export function ClosedDateForm({ villaId, bookingId, closedDateId, initialFrom, 
     setBusy(true); onBusy(true); setError("");
     try {
       if (action === "cancel" && closedDateId) await cancel({ closedDateId });
-      else await save({ villaId, bookingId, closedDateId, from, to, notes, confirmCancellation: Boolean(bookingId && confirmation === "save") });
+      else await save({ villaId, bookingId, closedDateId, from, to, notes, deleteCommission, confirmCancellation: Boolean(bookingId && confirmation === "save") });
       const dates = `${formatDate(action === "cancel" ? initialFrom : from, locale)} – ${formatDate(action === "cancel" ? initialTo : to, locale)}`;
       toast.success(t(action === "cancel"
         ? { en: `${dates}: closed date cancelled.`, th: `${dates}: ยกเลิกวันที่ปิดแล้ว` }
         : closedDateId
           ? { en: `${dates}: closed date successfully updated.`, th: `${dates}: อัปเดตวันที่ปิดสำเร็จแล้ว` }
           : { en: `${dates}: closed date successfully created.`, th: `${dates}: สร้างวันที่ปิดสำเร็จแล้ว` }));
+      setConfirmation(null);
       onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? localize(cause.message) : t({ en: "Could not save closed date.", th: "ไม่สามารถบันทึกวันที่ปิดได้" }));
-    } finally { setBusy(false); onBusy(false); setConfirmation(null); }
+    } finally { setBusy(false); onBusy(false); }
   }
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!dirty || busy || !canManage) return;
-    if (bookingId) setConfirmation("save");
+    if (bookingId) { setDeleteCommission(false); setConfirmation("save"); }
     else void persist("save");
   }
   return <form onSubmit={submit} className={hidden ? "hidden" : "flex flex-col gap-4"}>
@@ -70,6 +72,8 @@ export function ClosedDateForm({ villaId, bookingId, closedDateId, initialFrom, 
           <DialogTitle>{t({ en: "Are you sure?", th: "คุณแน่ใจหรือไม่?" })}</DialogTitle>
           <DialogDescription>{confirmation === "save" ? t({ en: "This date has an active booking. Closing the date will automatically cancel the booking", th: "วันที่นี้มีการจองอยู่ การปิดวันที่จะยกเลิกการจองโดยอัตโนมัติ" }) : t({ en: "These dates will become available for booking again.", th: "วันที่เหล่านี้จะเปิดให้จองได้อีกครั้ง" })}</DialogDescription>
         </DialogHeader>
+        {confirmation === "save" && bookingId && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={deleteCommission} disabled={busy} onChange={event => setDeleteCommission(event.target.checked)} />{t({ en: "Delete commission?", th: "ลบค่าคอมมิชชันหรือไม่?" })}</label>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" autoFocus disabled={busy} onClick={() => setConfirmation(null)}>{t({ en: "No", th: "ไม่" })}</Button>
           <Button type="button" variant="destructive" disabled={busy} onClick={() => { if (confirmation) void persist(confirmation); }}>{confirmation === "save" ? t({ en: "Yes, close date", th: "ใช่ ปิดวันที่" }) : t({ en: "Yes, cancel closed date", th: "ใช่ ยกเลิกวันที่ปิด" })}</Button>

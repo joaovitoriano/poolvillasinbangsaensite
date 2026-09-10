@@ -16,6 +16,7 @@ import type * as commissionPreferences from "../commissionPreferences.js";
 import type * as financials from "../financials.js";
 import type * as guests from "../guests.js";
 import type * as invitations from "../invitations.js";
+import type * as lib_accounting from "../lib/accounting.js";
 import type * as lib_activity from "../lib/activity.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_bookingRecords from "../lib/bookingRecords.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   financials: typeof financials;
   guests: typeof guests;
   invitations: typeof invitations;
+  "lib/accounting": typeof lib_accounting;
   "lib/activity": typeof lib_activity;
   "lib/auth": typeof lib_auth;
   "lib/bookingRecords": typeof lib_bookingRecords;

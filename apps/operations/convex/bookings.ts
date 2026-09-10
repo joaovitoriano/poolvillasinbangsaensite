@@ -135,7 +135,7 @@ export const update = mutation({
 });
 
 export const cancel = mutation({
-  args: { bookingId: v.id("bookings") },
+  args: { bookingId: v.id("bookings"), deleteCommission: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -143,7 +143,7 @@ export const cancel = mutation({
     const booking = await ctx.db.get(args.bookingId);
     if (!booking || booking.status === "cancelled") return null;
     await canEditBooking(ctx, user, booking);
-    await cancelBookingRecord(ctx, booking);
+    await cancelBookingRecord(ctx, booking, args.deleteCommission);
     return null;
   },
 });

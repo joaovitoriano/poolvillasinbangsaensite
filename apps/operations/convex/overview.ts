@@ -1,12 +1,14 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { accountingBookings, accountingRange, bookingAmounts } from "./lib/accounting";
 import { requireUser } from "./lib/auth";
 
 export const get = query({
   args: { from: v.string(), to: v.string(), weekFrom: v.string(), weekTo: v.string() }, returns: v.any(),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    accountingRange(args.from, args.to);
     const weekLength = (Date.parse(args.weekTo) - Date.parse(args.weekFrom)) / 86400000;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(args.weekFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(args.weekTo) || weekLength !== 7 || args.from >= args.to) throw new Error("Invalid date range / ช่วงวันที่ไม่ถูกต้อง");
     let villas: Doc<"villas">[];
@@ -20,13 +22,11 @@ export const get = query({
     const totals = { bookingCount: 0, chargedThb: 0, commissionsThb: 0, villaNetThb: 0 };
     const week: Array<{ id: string; villaId: string; villaName: string; kind: "booking" | "closed"; name: string; from: string; to: string }> = [];
     for (const villa of villas) {
-      const rows = await (user.role === "agent"
-        ? ctx.db.query("bookings").withIndex("by_villa_creator_and_createdAt", q => q.eq("villaId", villa._id).eq("createdByUserId", user._id)).filter(q => q.and(q.gte(q.field("checkIn"), args.from), q.lt(q.field("checkIn"), args.to)))
-        : ctx.db.query("bookings").withIndex("by_villaId_and_checkIn", q => q.eq("villaId", villa._id).gte("checkIn", args.from).lt("checkIn", args.to))).take(2001);
-      if (rows.length > 2000) throw new Error("Too many bookings / มีการจองมากเกินไป");
-      for (const row of rows) if (row.status === "confirmed") {
-        totals.bookingCount++; totals.chargedThb += row.totalChargedThb; totals.commissionsThb += row.creatorCommissionThb;
-        if (user.role !== "agent") totals.villaNetThb += row.villaNetThb;
+      const rows = await accountingBookings(ctx, villa._id, args.from, args.to, user.role === "agent" ? user._id : undefined);
+      for (const row of rows) {
+        const amounts = bookingAmounts(row);
+        totals.bookingCount += amounts.bookingCount; totals.chargedThb += amounts.chargedThb; totals.commissionsThb += amounts.commissionsThb;
+        if (user.role !== "agent") totals.villaNetThb += amounts.villaNetThb;
       }
       if (user.role === "owner") {
         const [nights, closures] = await Promise.all([

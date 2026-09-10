@@ -23,8 +23,8 @@ it("separates villa lists, totals, contact visibility and writes by selected mod
   const financials = await f.agent.query(api.financials.portfolio, period);
   expect(financials.totals).toMatchObject({ bookingCount: 1, chargedThb: 5500, villaNetThb: 4950 });
   await expect(f.agent.query(api.bookings.get, f.otherBooking)).rejects.toThrow();
-  await expect(f.agent.mutation(api.closedDates.save, { villaId: f.villaId, from: "2030-10-01", to: "2030-10-02", confirmCancellation: false })).rejects.toThrow();
-  await expect(f.agent.mutation(api.bookings.cancel, f.otherBooking)).rejects.toThrow();
+  await expect(f.agent.mutation(api.closedDates.save, { villaId: f.villaId, from: "2030-10-01", to: "2030-10-02", deleteCommission: false, confirmCancellation: false })).rejects.toThrow();
+  await expect(f.agent.mutation(api.bookings.cancel, { ...f.otherBooking, deleteCommission: false })).rejects.toThrow();
   const overview = await f.agent.query(api.overview.get, { ...period, weekFrom: "2030-09-23", weekTo: "2030-09-30" });
   expect(overview.activeVillas).toBe(1);
   expect(overview.totals.bookingCount).toBe(1);

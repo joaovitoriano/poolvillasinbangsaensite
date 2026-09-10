@@ -16,7 +16,7 @@ type Totals = { bookingCount: number; grossThb: number; discountsThb: number; ch
 type Series = Totals & { date: string };
 type VillaRow = Totals & { villaId: string; villaName: string };
 type UserRow = Totals & { userId: string; name: string; role: string };
-type BookingRow = { _id: string; guestName: string; checkIn: string; subtotalThb: number; discountThb: number; totalChargedThb: number; creatorCommissionThb: number; villaNetThb: number; creatorName: string; createdByUserId: string };
+type BookingRow = { accounting: Totals; accountingDate: string; _id: string; guestName: string; checkIn: string; subtotalThb: number; discountThb: number; totalChargedThb: number; creatorCommissionThb: number; villaNetThb: number; creatorName: string; createdByUserId: string };
 type DashboardData = { totals: Totals; series: Series[]; byVilla?: VillaRow[]; byUser?: UserRow[]; filterUsers?: Array<{ userId: string; name: string; bookingCount: number }>; bookings?: BookingRow[] };
 
 const emptyTotals: Totals = { bookingCount: 0, grossThb: 0, discountsThb: 0, chargedThb: 0, commissionsThb: 0, villaNetThb: 0 };
@@ -63,7 +63,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
   const filteredTotals = selectedCreators.length ? visiblePeople?.reduce((sum, row) => ({ bookingCount: sum.bookingCount + row.bookingCount, grossThb: sum.grossThb + row.grossThb, discountsThb: sum.discountsThb + row.discountsThb, chargedThb: sum.chargedThb + row.chargedThb, commissionsThb: sum.commissionsThb + row.commissionsThb, villaNetThb: sum.villaNetThb + row.villaNetThb }), { ...emptyTotals }) : data?.totals;
   const trendSeries = useMemo(() => {
     const groups = new Map<string, Series>();
-    const source = selectedCreators.length ? (data?.bookings ?? []).filter(row => selectedCreators.includes(row.createdByUserId)).map(row => ({ date: row.checkIn, bookingCount: 1, grossThb: row.subtotalThb, discountsThb: row.discountThb, chargedThb: row.totalChargedThb, commissionsThb: row.creatorCommissionThb, villaNetThb: row.villaNetThb })) : data?.series ?? [];
+    const source = selectedCreators.length ? (data?.bookings ?? []).filter(row => selectedCreators.includes(row.createdByUserId)).map(row => ({ date: row.accountingDate, ...row.accounting })) : data?.series ?? [];
     for (const row of source) {
       const date = periodStart(row.date, granularity);
       const group = groups.get(date) ?? { date, ...emptyTotals };
@@ -85,11 +85,13 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
   const availableTrends = trendKeys.filter((key) => !ownOnly || key !== "villaNetThb");
   const maximumTrendValue = trendSeries.reduce((maximum, row) =>
     availableTrends.reduce((value, key) => hiddenTrends.includes(key) ? value : Math.max(value, row[key]), maximum), 0);
-  const roughTickStep = Math.max(maximumTrendValue, 1) / 4;
+  const minimumTrendValue = trendSeries.reduce((minimum, row) => availableTrends.reduce((value, key) => hiddenTrends.includes(key) ? value : Math.min(value, row[key]), minimum), 0);
+  const roughTickStep = Math.max(maximumTrendValue - minimumTrendValue, 1) / 4;
   const tickMagnitude = 10 ** Math.floor(Math.log10(roughTickStep));
   const tickStep = ([1, 2, 5, 10].find((step) => step * tickMagnitude >= roughTickStep) ?? 10) * tickMagnitude;
-  const trendTicks = Array.from({ length: 5 }, (_, index) => index * tickStep);
-  const trendMaximum = tickStep * 4;
+  const trendMinimum = Math.floor(minimumTrendValue / tickStep) * tickStep;
+  const trendMaximum = Math.max(tickStep, Math.ceil(maximumTrendValue / tickStep) * tickStep);
+  const trendTicks = Array.from({ length: Math.round((trendMaximum - trendMinimum) / tickStep) + 1 }, (_, index) => trendMinimum + index * tickStep);
   const formatTrendTick = (value: number) => value >= 1000 ? `${Number((value / 1000).toFixed(1))}k` : String(value);
   const trendAxisWidth = Math.max(32, ...trendTicks.map((value) => formatTrendTick(value).length * 7 + 8));
   const creatorFilterId = useId();
@@ -156,7 +158,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
               <div className="financial-trend-chart flex min-w-0">
                 <div className="relative h-[220px] shrink-0 text-[10px] tabular-nums text-muted-foreground" style={{ width: trendAxisWidth }}>
                   <div className="absolute inset-x-0 top-2 bottom-[30px]">
-                    {trendTicks.map((value) => <span key={value} className="absolute right-2 -translate-y-1/2 whitespace-nowrap" style={{ top: `${100 - value / trendMaximum * 100}%` }}>{formatTrendTick(value)}</span>)}
+                    {trendTicks.map((value) => <span key={value} className="absolute right-2 -translate-y-1/2 whitespace-nowrap" style={{ top: `${100 - (value - trendMinimum) / (trendMaximum - trendMinimum) * 100}%` }}>{formatTrendTick(value)}</span>)}
                   </div>
                 </div>
               <div className="min-w-0 flex-1 overflow-x-auto" tabIndex={0} role="region" aria-label={t({ en: "Financial trend chart", th: "กราฟแนวโน้มการเงิน" })}>
@@ -168,7 +170,7 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
                       {payload ? formatPeriod(payload.value) : ""}
                     </text>
                   )} />
-                  <YAxis hide width={0} domain={[0, trendMaximum]} ticks={trendTicks} />
+                  <YAxis hide width={0} domain={[trendMinimum, trendMaximum]} ticks={trendTicks} />
                   <ChartTooltip content={<ChartTooltipContent formatter={(value, name) => <div className="flex min-w-36 justify-between gap-3"><span className="text-muted-foreground">{chartConfig[String(name) as keyof typeof chartConfig]?.label}</span><span className="font-mono font-medium">{formatThb(Number(value), locale)}</span></div>} />} />
                   {availableTrends.map((key) => chartType === "line"
                     ? <Line key={key} type="monotone" dataKey={key} hide={hiddenTrends.includes(key)} stroke={chartConfig[key].color} strokeWidth={2} dot={trendSeries.length === 1 ? { r: 3 } : false} isAnimationActive={false} />
@@ -252,10 +254,10 @@ export function FinancialDashboard({ data, portfolio = false, ownOnly = false }:
                   {filteredBookings.map((row) => (
                     <tr key={row._id} className={`${creatorColor(row.createdByUserId)} [&>td]:px-1 [&>td]:py-3 [&>td]:align-middle [&>td:first-child]:pl-4 [&>td:last-child]:pr-4`}>
                       <td><span className="block truncate font-medium" title={row.guestName}>{row.guestName}</span></td>
-                      <td className="text-right tabular-nums break-all">{formatThb(row.totalChargedThb, locale)}</td>
-                      <td className="text-right tabular-nums break-all">{formatThb(row.creatorCommissionThb, locale)}</td>
-                      {!ownOnly && <td className="text-right tabular-nums break-all">{formatThb(row.villaNetThb, locale)}</td>}
-                      <td className="text-right tabular-nums"><time dateTime={row.checkIn} title={formatDate(row.checkIn, locale)}>{new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" }).format(new Date(`${row.checkIn}T00:00:00.000Z`))}</time></td>
+                      <td className="text-right tabular-nums break-all">{formatThb(row.accounting.chargedThb, locale)}</td>
+                      <td className="text-right tabular-nums break-all">{formatThb(row.accounting.commissionsThb, locale)}</td>
+                      {!ownOnly && <td className="text-right tabular-nums break-all">{formatThb(row.accounting.villaNetThb, locale)}</td>}
+                      <td className="text-right tabular-nums"><time dateTime={row.accountingDate} title={formatDate(row.accountingDate, locale)}>{new Intl.DateTimeFormat(locale === "th" ? "th-TH" : "en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" }).format(new Date(`${row.accountingDate}T00:00:00.000Z`))}</time></td>
                     </tr>
                   ))}
                 </tbody>

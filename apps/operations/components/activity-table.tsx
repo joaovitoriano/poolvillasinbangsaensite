@@ -19,6 +19,7 @@ const entities: Record<string, { en: string; th: string }> = {
 const fields: Record<string, { en: string; th: string }> = {
   reason: { en: "Action", th: "การดำเนินการ" },
   subtotalThb: { en: "Original booking value", th: "ยอดจองก่อนหักส่วนลด" },
+  retainedCommissionThb: { en: "Retained commission", th: "ค่าคอมมิชชันที่ไม่ได้รับคืน" },
   creatorCommissionThb: { en: "Commission amount", th: "ยอดค่าคอมมิชชัน" },
   villaNetThb: { en: "Net revenue", th: "รายได้สุทธิ" },
   createdBy: { en: "Created by", th: "สร้างโดย" },

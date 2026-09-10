@@ -18,7 +18,7 @@ export const get = query({
 });
 
 export const save = mutation({
-  args: { villaId: v.id("villas"), closedDateId: v.optional(v.id("closedDates")), bookingId: v.optional(v.id("bookings")), confirmCancellation: v.boolean(), from: v.string(), to: v.string(), notes: v.optional(v.string()) },
+  args: { villaId: v.id("villas"), closedDateId: v.optional(v.id("closedDates")), bookingId: v.optional(v.id("bookings")), confirmCancellation: v.boolean(), deleteCommission: v.boolean(), from: v.string(), to: v.string(), notes: v.optional(v.string()) },
   returns: v.id("closedDates"),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -44,7 +44,7 @@ export const save = mutation({
       if (!booking || booking.villaId !== args.villaId || booking.status !== "confirmed") throw new Error("Active booking not found / ไม่พบการจองที่ใช้งานอยู่");
       await canEditBooking(ctx, user, booking);
       if (!args.confirmCancellation) throw new Error("Confirm booking cancellation first / กรุณายืนยันการยกเลิกการจองก่อน");
-      await cancelBookingRecord(ctx, booking);
+      await cancelBookingRecord(ctx, booking, args.deleteCommission);
     }
     const dates = Array.from({ length: count }, (_, index) => new Date(start + index * 86400000).toISOString().slice(0, 10));
     for (const date of dates) {

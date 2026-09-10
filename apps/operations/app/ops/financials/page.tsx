@@ -1,5 +1,4 @@
 "use client";
-import { useBangkokDay } from "@/hooks/use-bangkok-day";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "@/convex/_generated/api";
@@ -16,13 +15,12 @@ function quickRange(period: "month" | "quarter" | "year") {
 }
 export default function PortfolioFinancialsPage() {
   const { t } = useLocale();
-  const asOf = useBangkokDay();
   const user = useQuery(api.users.current);
   const [range, setRange] = useState(() => quickRange("month"));
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(range.from) && /^\d{4}-\d{2}-\d{2}$/.test(range.to) && range.to >= range.from && Date.parse(range.to) - Date.parse(range.from) < 3660 * 86400000;
   // UI end date is inclusive; queries use an exclusive upper bound.
   const toExclusive = valid ? new Date(Date.parse(`${range.to}T00:00:00Z`) + 86400000).toISOString().slice(0, 10) : "";
-  const data = useQuery(api.financials.portfolio, user && valid ? { from: range.from, to: toExclusive, asOf } : "skip");
+  const data = useQuery(api.financials.portfolio, user && valid ? { from: range.from, to: toExclusive } : "skip");
   return <PageFrame><div className="grid gap-3"><DateRangeFilter {...range} onChange={setRange} /><div className="grid grid-cols-3 gap-2">{(["month", "quarter", "year"] as const).map(period => {
     const target = quickRange(period), active = target.from === range.from && target.to === range.to;
     return <Button key={period} variant={active ? "secondary" : "ghost"} size="sm" className="h-8 text-xs" aria-pressed={active} onClick={() => setRange(target)}>{t(period === "month" ? { en: "Month", th: "เดือน" } : period === "quarter" ? { en: "Quarter", th: "ไตรมาส" } : { en: "Year", th: "ปี" })}</Button>;

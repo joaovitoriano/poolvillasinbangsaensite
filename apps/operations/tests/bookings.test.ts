@@ -64,7 +64,7 @@ describe("access control and privacy", () => {
     expect(await f.agent.query(api.guests.search, { name: "Araya" })).toHaveLength(1);
     const before = await f.counts();
     await expect(f.other.mutation(api.bookings.update, { ...booking, bookingId, notes: "Hijack" })).rejects.toThrow();
-    await expect(f.other.mutation(api.bookings.cancel, { bookingId })).rejects.toThrow();
+    await expect(f.other.mutation(api.bookings.cancel, { bookingId, deleteCommission: true })).rejects.toThrow();
     expect(await f.counts()).toEqual(before);
   });
   it.each(["owner", "agent"] as const)("limits %s to assigned villas", async role => {

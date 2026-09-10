@@ -148,11 +148,11 @@ export async function updateBookingRecord(ctx: MutationCtx, booking: Doc<"bookin
   });
 }
 
-export async function cancelBookingRecord(ctx: MutationCtx, booking: Doc<"bookings">, now = Date.now()) {
+export async function cancelBookingRecord(ctx: MutationCtx, booking: Doc<"bookings">, deleteCommission: boolean, now = Date.now()) {
   const nights = await ctx.db
     .query("bookingNights")
     .withIndex("by_bookingId_and_date", (q) => q.eq("bookingId", booking._id))
     .take(MAX_BOOKING_NIGHTS);
   for (const night of nights) await ctx.db.delete(night._id);
-  await ctx.db.patch(booking._id, { status: "cancelled", cancelledAt: now, updatedAt: now });
+  await ctx.db.patch(booking._id, { status: "cancelled", cancelledAt: now, updatedAt: now, retainedCommissionThb: deleteCommission ? 0 : booking.creatorCommissionThb });
 }

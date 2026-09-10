@@ -139,6 +139,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     cancelledAt: v.optional(v.number()),
+    retainedCommissionThb: v.optional(v.number()),
   })
     .index("by_villaId_and_checkIn", ["villaId", "checkIn"])
     .index("by_villa_and_createdAt", ["villaId", "createdAt"])
