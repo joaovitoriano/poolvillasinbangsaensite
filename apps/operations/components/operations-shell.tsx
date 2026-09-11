@@ -151,9 +151,9 @@ export function OperationsShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-white text-foreground">
       <div>
         <header className="sticky top-0 z-20 flex h-14 items-center border-b bg-white/95 px-4 backdrop-blur">
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold">{headerTitle}</p>
-            {activeVilla ? <p className="truncate text-[11px] text-muted-foreground">{activeVilla.name}</p> : null}
+          <div className="w-full min-w-0 text-center leading-tight">
+            <p className={cn("truncate", activeVilla ? "text-[11px] font-medium text-muted-foreground" : "text-sm font-semibold")}>{headerTitle}</p>
+            {activeVilla ? <p className="truncate text-base font-semibold">{activeVilla.name}</p> : null}
           </div>
         </header>
         <main key={`${currentUser._id}:${currentUser.role}`} className={mainClass}>{children}</main>
